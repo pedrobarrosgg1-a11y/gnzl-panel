@@ -1,0 +1,1 @@
+"""Consultas e persistência."""

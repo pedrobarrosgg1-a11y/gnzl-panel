@@ -1,0 +1,37 @@
+# --- ambiente local ---
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+
+# --- dados locais (banco, logs, caches) ---
+data/*
+!data/.gitkeep
+*.db
+*.db-shm
+*.db-wal
+logs/
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# --- node / frontend ---
+node_modules/
+frontend/dist/
+frontend/.vite/
+coverage/
+playwright-report/
+test-results/
+
+# --- editores e sistema ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

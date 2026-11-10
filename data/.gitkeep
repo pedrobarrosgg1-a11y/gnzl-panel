@@ -1,0 +1,3 @@
+Este diretório guarda dados locais da aplicação (banco SQLite, logs e caches).
+
+Os arquivos gerados aqui não são versionados.
