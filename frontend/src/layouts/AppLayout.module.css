@@ -1,0 +1,265 @@
+.shell {
+  min-height: 100vh;
+}
+
+.skip {
+  position: absolute;
+  top: -100px;
+  left: var(--gz-s4);
+  z-index: 100;
+  padding: var(--gz-s3) var(--gz-s4);
+  border-radius: var(--gz-r-sm);
+  background: var(--gz-black);
+  color: var(--gz-white);
+  font-size: 14px;
+}
+
+.skip:focus {
+  top: var(--gz-s4);
+}
+
+/* --- barra lateral fixa --- */
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  width: var(--gz-sidebar);
+  padding: var(--gz-s8) var(--gz-s6);
+  border-right: var(--gz-border) solid var(--gz-gray-200);
+  background: var(--gz-white);
+}
+
+.sidebarTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--gz-s3);
+}
+
+.closeButton {
+  display: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -8px -8px 0 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gz-gray-700);
+}
+
+.closeButton:hover {
+  background: var(--gz-gray-100);
+  color: var(--gz-black);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--gz-s12);
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: var(--gz-s3);
+  min-height: 44px;
+  margin: 0 calc(var(--gz-s2) * -1);
+  padding: 0 var(--gz-s2);
+  border-radius: var(--gz-r-sm);
+  font-size: 15px;
+  color: var(--gz-gray-700);
+  transition: color var(--gz-transition), background-color var(--gz-transition);
+}
+
+.link:hover {
+  color: var(--gz-black);
+  background: var(--gz-gray-100);
+}
+
+.linkActive {
+  color: var(--gz-black);
+  font-weight: 500;
+}
+
+.navPing {
+  width: 6px;
+  height: 6px;
+  background: var(--gz-black);
+}
+
+.navPingHidden {
+  visibility: hidden;
+}
+
+/* --- em breve --- */
+.soon {
+  margin-top: var(--gz-s8);
+  padding-top: var(--gz-s6);
+  border-top: var(--gz-border) solid var(--gz-gray-200);
+}
+
+.soonList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--gz-s3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.soonItem {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--gz-s2);
+  padding: var(--gz-s2);
+  margin: 0 calc(var(--gz-s2) * -1);
+  font-size: 14px;
+  color: var(--gz-gray-500);
+}
+
+.phase {
+  font-family: var(--gz-font-display);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+}
+
+/* --- rodapé --- */
+.footer {
+  margin-top: auto;
+  padding-top: var(--gz-s4);
+  border-top: var(--gz-border) solid var(--gz-gray-200);
+}
+
+.footerGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gz-s2);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--gz-s3);
+  font-size: 13px;
+  color: var(--gz-gray-700);
+}
+
+.statusPing {
+  width: 6px;
+  height: 6px;
+  background: var(--gz-black);
+}
+
+.statusOff {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gz-gray-500);
+}
+
+.version {
+  font-size: 12px;
+  color: var(--gz-gray-500);
+}
+
+/* --- área principal --- */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin-left: var(--gz-sidebar);
+}
+
+.content {
+  width: 100%;
+  max-width: 1240px;
+  padding: 40px var(--gz-s12) var(--gz-s16);
+}
+
+.mobileBar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gz-s4);
+  padding: var(--gz-s4) var(--gz-s6);
+  border-bottom: var(--gz-border) solid var(--gz-gray-200);
+  background: var(--gz-white);
+}
+
+.menuButton {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -8px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--gz-black);
+}
+
+.menuButton:hover {
+  background: var(--gz-gray-100);
+}
+
+.menuIcon {
+  width: 22px;
+  height: 22px;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  border: 0;
+  background: rgba(10, 10, 10, 0.28);
+}
+
+@media (max-width: 900px) {
+  .main {
+    margin-left: 0;
+  }
+
+  .mobileBar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+  }
+
+  .content {
+    padding: var(--gz-s6) var(--gz-s6) var(--gz-s16);
+  }
+
+  .sidebar {
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform var(--gz-transition), visibility var(--gz-transition);
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .closeButton {
+    display: grid;
+  }
+
+  .backdrop {
+    display: block;
+  }
+}
+
+@media (min-width: 901px) {
+  .backdrop {
+    display: none;
+  }
+}

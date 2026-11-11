@@ -3,8 +3,8 @@
 Uso:
     python app.py
 
-Sobe a API em http://127.0.0.1:8000. Quando existir um build do frontend em
-frontend/dist, o mesmo processo também serve a interface.
+Sobe a API em http://127.0.0.1:8000. Durante o desenvolvimento, a interface
+roda separada com `npm run dev` em frontend/ e usa o proxy /api do Vite.
 """
 
 import sys

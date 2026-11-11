@@ -1,0 +1,36 @@
+:root {
+  /* cores — apenas os tokens do DESIGN.md */
+  --gz-black: #0a0a0a;
+  --gz-white: #ffffff;
+  --gz-blue: #b9f2ff;
+  --gz-blue-ink: #0a6e9a;
+  --gz-gray-700: #3a3a3a;
+  --gz-gray-500: #737373;
+  --gz-gray-200: #e6e6e6;
+  --gz-gray-100: #f5f5f5;
+
+  /* tipografia */
+  --gz-font-display: "Syne", Arial, sans-serif;
+  --gz-font-body: "Inter", Arial, sans-serif;
+
+  /* raios */
+  --gz-r-sm: 8px;
+  --gz-r-md: 14px;
+  --gz-r-lg: 22px;
+  --gz-r-pill: 999px;
+
+  /* espaçamento */
+  --gz-s1: 4px;
+  --gz-s2: 8px;
+  --gz-s3: 12px;
+  --gz-s4: 16px;
+  --gz-s6: 24px;
+  --gz-s8: 32px;
+  --gz-s12: 48px;
+  --gz-s16: 64px;
+
+  /* estrutura */
+  --gz-sidebar: 248px;
+  --gz-border: 1.5px;
+  --gz-transition: 160ms ease;
+}

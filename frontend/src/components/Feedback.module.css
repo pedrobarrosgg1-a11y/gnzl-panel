@@ -1,0 +1,21 @@
+.feedback {
+  padding: var(--gz-s3) var(--gz-s4);
+  border-left: var(--gz-border) solid currentColor;
+  background: var(--gz-gray-100);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.success {
+  color: var(--gz-black);
+}
+
+.info {
+  color: var(--gz-gray-700);
+}
+
+.error {
+  color: var(--gz-black);
+  border-left-width: var(--gz-s2);
+  border-left-color: var(--gz-black);
+}

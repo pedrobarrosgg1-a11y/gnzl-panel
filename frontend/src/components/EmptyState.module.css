@@ -1,0 +1,25 @@
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--gz-s16) var(--gz-s6);
+}
+
+.title {
+  margin-top: var(--gz-s8);
+  font-size: 30px;
+  text-transform: lowercase;
+}
+
+.description {
+  max-width: 46ch;
+  margin-top: var(--gz-s3);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--gz-gray-500);
+}
+
+.action {
+  margin-top: var(--gz-s6);
+}

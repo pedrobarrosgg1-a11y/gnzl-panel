@@ -1,0 +1,105 @@
+.wrap {
+  overflow-x: auto;
+}
+
+.table {
+  min-width: 820px;
+}
+
+.tableWithActions {
+  min-width: 880px;
+}
+
+.product {
+  display: flex;
+  align-items: center;
+  gap: var(--gz-s3);
+  min-width: 260px;
+}
+
+.thumb {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--gz-r-sm);
+  background: var(--gz-gray-100);
+  font-family: var(--gz-font-display);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--gz-gray-500);
+  text-transform: uppercase;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--gz-black);
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--gz-gray-500);
+  white-space: nowrap;
+}
+
+.category {
+  color: var(--gz-gray-700);
+  white-space: nowrap;
+}
+
+.linkCell {
+  width: 44px;
+  padding-right: 0;
+}
+
+.external {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--gz-gray-700);
+  transition: background-color var(--gz-transition), color var(--gz-transition);
+}
+
+.external:hover {
+  background: var(--gz-gray-100);
+  color: var(--gz-black);
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+}
+
+.noLink {
+  display: inline-block;
+  width: 44px;
+  text-align: center;
+  color: var(--gz-gray-500);
+}
+
+.actionsCell {
+  width: 44px;
+  padding-right: 0;
+  padding-left: 0;
+  text-align: right;
+}

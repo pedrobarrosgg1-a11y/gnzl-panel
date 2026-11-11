@@ -1,0 +1,5 @@
+.ping {
+  width: 6px;
+  height: 6px;
+  background: var(--gz-black);
+}

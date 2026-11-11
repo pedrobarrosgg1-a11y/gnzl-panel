@@ -4,7 +4,7 @@ Painel local para gerenciamento de atividades de afiliado da Shopee Brasil:
 busca de produtos, geração de links em lote com Sub IDs e histórico.
 
 - **Backend:** Python + FastAPI + SQLite (SQLAlchemy 2)
-- **Frontend:** React 19 + TypeScript + Vite (em construção)
+- **Frontend:** React 19 + TypeScript + Vite
 - **Execução:** local, em `127.0.0.1`
 
 Este é um projeto pessoal que roda exclusivamente na sua máquina. Nenhum dado
@@ -21,10 +21,14 @@ provedor `shopee` estiver habilitado.
 | 3 — Busca de produtos e listas | concluída |
 | 4 — Sub IDs | concluída |
 | 5 — Lotes e links | concluída |
-| 6 a 12 — Frontend, E2E e fechamento | pendente |
+| 6 — Fundação do frontend | concluída |
+| 7 — Busca de produtos (interface) | concluída |
+| 8 — Listas de produtos (interface) | concluída |
+| 9 a 12 — Lotes, links, E2E e fechamento | pendente |
 
-Enquanto a Open API de afiliados não estiver liberada, a aplicação funciona em
-**modo demo**, com dados fictícios identificados como tal.
+O provedor oficial ainda não está implementado. Mesmo com as credenciais da
+Shopee preenchidas no `.env`, a aplicação continua em **modo demo**
+(`GNZL_PROVIDER=demo`), com dados fictícios identificados como tal.
 
 ## Requisitos
 
@@ -44,18 +48,40 @@ O `.env` é opcional para rodar em modo demo: os valores padrão já funcionam.
 
 ## Execução
 
+Durante o desenvolvimento, backend e frontend rodam em dois terminais.
+
 ```powershell
+# terminal 1 — API
 python app.py
 ```
 
+```powershell
+# terminal 2 — interface
+cd frontend
+npm install
+npm run dev
+```
+
+- Interface: http://127.0.0.1:5173
 - API: http://127.0.0.1:8000/api/docs
 - Saúde: http://127.0.0.1:8000/api/health
+
+O Vite encaminha `/api` para `127.0.0.1:8000`, então o frontend chama caminhos
+relativos e não precisa de configuração extra de CORS.
 
 ## Testes
 
 ```powershell
+# backend
 cd backend
 pytest
+```
+
+```powershell
+# frontend (Vitest)
+cd frontend
+npm run test
+npm run build
 ```
 
 ## Configuração
@@ -79,7 +105,7 @@ Credenciais nunca são expostas pela API, nem registradas em logs.
 ```
 backend/app/     API, regras de negócio, provedores, modelos e persistência
 backend/tests/   Pytest
-frontend/        Interface React (etapa 6 em diante)
+frontend/        Interface React (busca, listas, lotes e histórico)
 data/            Banco SQLite e logs (não versionado)
 docs/            Arquitetura e decisões técnicas
 ```

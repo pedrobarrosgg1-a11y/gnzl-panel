@@ -28,6 +28,7 @@ frontend/.vite/
 coverage/
 playwright-report/
 test-results/
+.playwright-mcp/
 
 # --- editores e sistema ---
 .vscode/

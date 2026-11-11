@@ -1,0 +1,30 @@
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gz-s4);
+  padding: var(--gz-s16) var(--gz-s6);
+  text-align: center;
+}
+
+.ping {
+  width: 8px;
+  height: 8px;
+  background: var(--gz-black);
+}
+
+.title {
+  font-size: 30px;
+  text-transform: lowercase;
+}
+
+.text {
+  max-width: 52ch;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--gz-gray-500);
+}
+
+.action {
+  margin-top: var(--gz-s2);
+}

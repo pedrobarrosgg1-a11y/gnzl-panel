@@ -1,0 +1,39 @@
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gz-s4);
+  margin-top: var(--gz-s6);
+  padding-top: var(--gz-s4);
+  border-top: var(--gz-border) solid var(--gz-gray-200);
+}
+
+.page {
+  font-family: var(--gz-font-display);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  color: var(--gz-gray-500);
+}
+
+.controls {
+  display: flex;
+  gap: var(--gz-s2);
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 560px) {
+  .bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
