@@ -35,6 +35,7 @@ confirmado quando a Open API for liberada; 64 é o teto local de segurança.
 | `shop_id` | INTEGER | obrigatório, único com `item_id` |
 | `title` | VARCHAR(300) | obrigatório |
 | `image_url` | TEXT | opcional |
+| `product_url` | TEXT | opcional; URL de origem usada na geração de links |
 | `price_cents` | INTEGER | ≥ 0 |
 | `commission_rate_bp` | INTEGER | 0 a 10000 |
 | `sales` | INTEGER | ≥ 0 ou nulo (quando a fonte não informa) |

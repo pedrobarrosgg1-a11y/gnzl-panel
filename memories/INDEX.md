@@ -10,6 +10,7 @@ testes nem `docs/architecture/`.
 - [Etapa 8 — listas de produtos](Results/etapa-8-listas.md)
 - [Etapa 9 — lotes e links](Results/etapa-9-lotes-links.md)
 - [Etapa 10 — testes E2E](Results/etapa-10-e2e.md)
+- [Etapa 11 — revisão de fechamento da fase 1](Results/etapa-11-fechamento.md)
 
 ## Gotchas
 

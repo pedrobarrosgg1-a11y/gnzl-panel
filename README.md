@@ -26,11 +26,15 @@ provedor `shopee` estiver habilitado.
 | 8 — Listas de produtos (interface) | concluída |
 | 9 — Lotes e links (interface) | concluída |
 | 10 — Testes E2E (Playwright) | concluída |
-| 11 a 12 — Fechamento | pendente |
+| 11 — Revisão de fechamento (config, design, código, docs) | concluída |
+| 12 — Fechamento final da fase 1 | pendente |
 
 O provedor oficial ainda não está implementado. Mesmo com as credenciais da
 Shopee preenchidas no `.env`, a aplicação continua em **modo demo**
 (`GNZL_PROVIDER=demo`), com dados fictícios identificados como tal.
+
+A visão consolidada da fase 1 está em
+[`docs/architecture/phase-1.md`](docs/architecture/phase-1.md).
 
 ## Requisitos
 
@@ -108,9 +112,11 @@ Consulte `.env.example` para a lista completa.
 | `GNZL_ENVIRONMENT` | `dev` | `dev` habilita CORS para o Vite |
 | `GNZL_PROVIDER` | `demo` | `demo` ou `shopee` |
 | `GNZL_HOST` / `GNZL_PORT` | `127.0.0.1` / `8000` | Endereço da API |
+| `GNZL_DATABASE_URL` | vazio | Caminho alternativo do SQLite; vazio usa `data/gnzl.db` |
 | `GNZL_LINK_CONCURRENCY` | `3` | Gerações simultâneas por lote |
 | `GNZL_HTTP_TIMEOUT_SECONDS` | `15` | Timeout das chamadas externas |
 | `GNZL_SHOPEE_APP_ID` / `GNZL_SHOPEE_SECRET` | vazio | Credenciais da Open API |
+| `GNZL_SHOPEE_API_BASE` | endpoint oficial | Base da Open API, sobrescrevível |
 
 Credenciais nunca são expostas pela API, nem registradas em logs.
 
