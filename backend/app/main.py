@@ -7,7 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import Engine
 
 from app import __version__
-from app.api import link_batches, links, lists, products, sub_ids, system
+from app.api import (
+    imports,
+    link_batches,
+    links,
+    lists,
+    products,
+    sub_ids,
+    system,
+)
 from app.api.errors import register_error_handlers
 from app.core.config import Settings, get_settings
 from app.database.session import build_database, create_session_factory
@@ -81,6 +89,7 @@ def create_app(
     app.include_router(sub_ids.router, prefix="/api")
     app.include_router(link_batches.router, prefix="/api")
     app.include_router(links.router, prefix="/api")
+    app.include_router(imports.router, prefix="/api")
     return app
 
 

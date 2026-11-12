@@ -44,7 +44,7 @@ A visão consolidada da fase 1 está em
 | Etapa | Situação |
 |---|---|
 | 13 — Modelagem de conversão, importações e metas | concluída |
-| 14 — Importação CSV | pendente |
+| 14 — Importação CSV | concluída |
 | 15 — Agregações e endpoints do dashboard | pendente |
 | 16 — Tela de dashboard com gráfico e rankings | pendente |
 | 17 — Metas | pendente |

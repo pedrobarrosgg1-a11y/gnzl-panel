@@ -9,7 +9,7 @@ fictício sem identificação.
 | etapa | entrega | situação |
 |---|---|---|
 | 13 | Modelagem e migrations de pedidos, cliques, metas e importações | concluída |
-| 14 | Importação CSV com validação, deduplicação e relatório de linhas | pendente |
+| 14 | Importação CSV com validação, deduplicação e relatório de linhas | concluída |
 | 15 | Agregações e endpoints de dashboard | pendente |
 | 16 | Tela de dashboard com métricas, gráfico e rankings | pendente |
 | 17 | Metas: cadastro, acompanhamento e integração com o dashboard | pendente |
@@ -69,20 +69,22 @@ dashboard não soma origens diferentes sem um filtro explícito.
 
 ## Importação CSV
 
-O importador terá um contrato canônico documentado, independente do nome
-original das colunas. A primeira versão aceita:
+O importador usa um contrato canônico e próprio, documentado em
+[`import-csv.md`](import-csv.md). Ele está implementado:
 
-- um arquivo por vez;
-- cabeçalho obrigatório;
-- codificação UTF-8 (com ou sem BOM);
-- separador vírgula;
-- valores monetários em centavos ou no formato `R$ 0,00`, conforme o contrato;
-- datas em ISO-8601 ou no formato do relatório, com conversão para UTC;
-- relatório de linhas importadas, ignoradas e com erro.
+- um arquivo por vez, enviado como CSV cru;
+- cabeçalho obrigatório, com colunas obrigatórias validadas;
+- UTF-8 com ou sem BOM, ou Windows-1252;
+- separador vírgula ou ponto e vírgula;
+- valores monetários em centavos, como no restante do banco;
+- datas em ISO-8601 ou `DD/MM/AAAA HH:MM[:SS]`, convertidas para UTC;
+- relatório de linhas importadas, ignoradas e com erro;
+- reimportação idempotente por `dedup_key`;
+- erros de linha não interrompem o arquivo.
 
-O mapeamento das colunas reais da Shopee será confirmado com um arquivo de
-exemplo antes da implementação do parser definitivo. Nenhum nome de coluna
-oficial será inventado.
+O mapeamento das colunas reais da Shopee continua pendente de um arquivo de
+exemplo. Nenhum nome de coluna oficial foi inventado; o adaptador futuro
+converterá o relatório oficial para o contrato canônico.
 
 ## Dashboard
 

@@ -13,3 +13,7 @@ MAX_PAGE_SIZE = 100
 # Teto por lote. Mantém a operação previsível e evita uma chamada externa
 # descontrolada quando o provedor oficial for ativado.
 MAX_BATCH_ITEMS = 200
+
+# Importação CSV: o arquivo é lido inteiro em memória. O teto evita que um
+# upload acidental derrube o processo local.
+MAX_IMPORT_BYTES = 10 * 1024 * 1024
