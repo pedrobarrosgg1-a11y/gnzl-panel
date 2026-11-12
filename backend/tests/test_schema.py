@@ -5,7 +5,7 @@ falhar, a integridade dos dados depende só de código de aplicação — o que 
 é suficiente para histórico de links e comissões.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 from alembic import command
@@ -18,8 +18,13 @@ from app.core.config import PROJECT_ROOT
 from app.database.session import create_db_engine
 from app.models import (
     AffiliateLink,
+    Click,
+    Goal,
+    ImportedRow,
+    ImportLog,
     LinkBatch,
     LinkBatchItem,
+    Order,
     Product,
     ProductList,
     ProductListItem,
@@ -31,8 +36,13 @@ MIGRATIONS_DIR = PROJECT_ROOT / "backend" / "migrations"
 EXPECTED_TABLES = {
     "affiliate_links",
     "alembic_version",
+    "clicks",
+    "goals",
+    "import_logs",
+    "imported_rows",
     "link_batch_items",
     "link_batches",
+    "orders",
     "product_list_items",
     "product_lists",
     "products",
@@ -54,7 +64,63 @@ def _product(session: Session, *, item_id: int = 1, shop_id: int = 10) -> Produc
     return product
 
 
-def test_migration_creates_all_phase_one_tables(engine) -> None:
+def _order(session: Session, **overrides) -> Order:
+    values = {
+        "external_order_id": "2400000000001",
+        "status": "Aprovado",
+        "status_group": "approved",
+        "ordered_at": datetime(2026, 11, 1, 12, 0, 0),
+        "data_source": "demo",
+        "dedup_key": "demo:order-1",
+    }
+    values.update(overrides)
+    order = Order(**values)
+    session.add(order)
+    session.flush()
+    return order
+
+
+def _click(session: Session, **overrides) -> Click:
+    values = {
+        "clicked_at": datetime(2026, 11, 1, 9, 0, 0),
+        "data_source": "demo",
+        "dedup_key": "demo:click-1",
+    }
+    values.update(overrides)
+    click = Click(**values)
+    session.add(click)
+    session.flush()
+    return click
+
+
+def _import_log(session: Session, **overrides) -> ImportLog:
+    values = {
+        "filename": "conversion.csv",
+        "report_type": "orders",
+        "data_source": "csv",
+    }
+    values.update(overrides)
+    import_log = ImportLog(**values)
+    session.add(import_log)
+    session.flush()
+    return import_log
+
+
+def _goal(session: Session, **overrides) -> Goal:
+    values = {
+        "period_start": date(2026, 11, 1),
+        "period_end": date(2026, 11, 30),
+        "metric": "commission_cents",
+        "target_value": 50000,
+    }
+    values.update(overrides)
+    goal = Goal(**values)
+    session.add(goal)
+    session.flush()
+    return goal
+
+
+def test_migration_creates_all_expected_tables(engine) -> None:
     assert set(inspect(engine).get_table_names()) == EXPECTED_TABLES
 
 
@@ -321,3 +387,125 @@ def test_sub_id_value_keeps_one_row_per_dimension_and_value(session: Session) ->
 def test_foreign_keys_are_enforced_per_connection(engine) -> None:
     with engine.connect() as connection:
         assert connection.execute(text("PRAGMA foreign_keys")).scalar() == 1
+
+
+def test_order_dedup_key_is_unique_per_source(session: Session) -> None:
+    _order(session, dedup_key="demo:order-1")
+
+    with pytest.raises(IntegrityError):
+        _order(session, dedup_key="demo:order-1")
+
+
+def test_same_order_dedup_key_can_exist_in_another_source(session: Session) -> None:
+    _order(session, dedup_key="shared-key", data_source="demo")
+    _order(session, dedup_key="shared-key", data_source="csv")
+
+    session.commit()
+
+    assert session.query(Order).count() == 2
+
+
+def test_order_rejects_unknown_status_group(session: Session) -> None:
+    with pytest.raises(IntegrityError):
+        _order(session, status_group="aprovado")
+
+
+def test_order_rejects_sub_id_out_of_canonical_format(session: Session) -> None:
+    with pytest.raises(IntegrityError):
+        _order(session, sub_id_1="Instagram")
+
+
+def test_click_dedup_key_is_unique_per_source(session: Session) -> None:
+    _click(session, dedup_key="demo:click-1")
+
+    with pytest.raises(IntegrityError):
+        _click(session, dedup_key="demo:click-1")
+
+
+def test_goal_rejects_inverted_period(session: Session) -> None:
+    with pytest.raises(IntegrityError):
+        _goal(session, period_start=date(2026, 11, 30), period_end=date(2026, 11, 1))
+
+
+def test_goal_rejects_non_positive_target(session: Session) -> None:
+    with pytest.raises(IntegrityError):
+        _goal(session, target_value=0)
+
+
+def test_goal_is_unique_per_period_and_metric(session: Session) -> None:
+    _goal(session)
+
+    with pytest.raises(IntegrityError):
+        _goal(session)
+
+
+def test_import_log_rejects_inconsistent_counters(session: Session) -> None:
+    with pytest.raises(IntegrityError):
+        _import_log(session, rows_total=1, rows_imported=1, rows_failed=1)
+
+
+def test_import_log_rejects_unknown_report_type(session: Session) -> None:
+    with pytest.raises(IntegrityError):
+        _import_log(session, report_type="products")
+
+
+def test_imported_row_requires_existing_import_log(session: Session) -> None:
+    session.add(ImportedRow(import_id=999, row_number=2))
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_imported_row_cannot_reference_both_order_and_click(session: Session) -> None:
+    import_log = _import_log(session)
+    order = _order(session)
+    click = _click(session)
+
+    session.add(
+        ImportedRow(
+            import_id=import_log.id,
+            row_number=2,
+            order_id=order.id,
+            click_id=click.id,
+        )
+    )
+
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_deleting_import_log_removes_its_rows(session: Session) -> None:
+    import_log = _import_log(session)
+    order = _order(session, import_id=import_log.id)
+    session.add(
+        ImportedRow(
+            import_id=import_log.id,
+            row_number=2,
+            order_id=order.id,
+        )
+    )
+    session.commit()
+
+    session.delete(import_log)
+    session.commit()
+
+    assert session.query(ImportedRow).count() == 0
+    # O pedido importado permanece; só o vínculo com a importação é desfeito.
+    order = session.query(Order).one()
+    session.refresh(order)
+    assert order.import_id is None
+
+
+def test_deleting_order_keeps_imported_row_as_history(session: Session) -> None:
+    import_log = _import_log(session)
+    order = _order(session, import_id=import_log.id)
+    row = ImportedRow(import_id=import_log.id, row_number=2, order_id=order.id)
+    session.add(row)
+    session.commit()
+
+    session.delete(order)
+    session.commit()
+
+    session.refresh(row)
+    assert row.order_id is None
+    assert row.status == "imported"

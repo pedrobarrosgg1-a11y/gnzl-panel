@@ -18,6 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.constants import SUB_ID_MAX_LENGTH
 from app.core.time import utcnow
 from app.database.base import Base
+from app.models.constraints import sub_id_format_constraint
 
 if TYPE_CHECKING:
     from app.models.product import Product, ProductList
@@ -26,16 +27,6 @@ DESTINATION_TYPES = ("product", "list")
 BATCH_STATUSES = ("pending", "running", "completed", "partial", "failed")
 LINK_STATUSES = ("active", "replaced")
 ITEM_STATUSES = ("pending", "success", "failed", "skipped")
-
-
-def _sub_id_check(column: str) -> CheckConstraint:
-    """Formato canônico: minúsculas, dígitos e hífen. Sem acento, espaço ou maiúscula."""
-    return CheckConstraint(
-        f"{column} IS NULL OR ("
-        f"{column} NOT GLOB '*[^a-z0-9-]*' "
-        f"AND length({column}) BETWEEN 1 AND {SUB_ID_MAX_LENGTH})",
-        name=f"{column}_format",
-    )
 
 
 class LinkBatch(Base):
@@ -63,11 +54,11 @@ class LinkBatch(Base):
             "successful_items + failed_items <= total_items", name="counters_consistency"
         ),
         CheckConstraint("data_source IN ('demo', 'shopee', 'csv')", name="data_source"),
-        _sub_id_check("sub_id_1"),
-        _sub_id_check("sub_id_2"),
-        _sub_id_check("sub_id_3"),
-        _sub_id_check("sub_id_4"),
-        _sub_id_check("sub_id_5"),
+        sub_id_format_constraint("sub_id_1"),
+        sub_id_format_constraint("sub_id_2"),
+        sub_id_format_constraint("sub_id_3"),
+        sub_id_format_constraint("sub_id_4"),
+        sub_id_format_constraint("sub_id_5"),
         Index("ix_link_batches_created_at", "created_at"),
     )
 
@@ -153,11 +144,11 @@ class AffiliateLink(Base):
         CheckConstraint("status IN ('active', 'replaced')", name="status"),
         CheckConstraint("data_source IN ('demo', 'shopee', 'csv')", name="data_source"),
         CheckConstraint("affiliate_url <> ''", name="affiliate_url_not_empty"),
-        _sub_id_check("sub_id_1"),
-        _sub_id_check("sub_id_2"),
-        _sub_id_check("sub_id_3"),
-        _sub_id_check("sub_id_4"),
-        _sub_id_check("sub_id_5"),
+        sub_id_format_constraint("sub_id_1"),
+        sub_id_format_constraint("sub_id_2"),
+        sub_id_format_constraint("sub_id_3"),
+        sub_id_format_constraint("sub_id_4"),
+        sub_id_format_constraint("sub_id_5"),
         Index("ix_affiliate_links_created_at", "created_at"),
         Index("ix_affiliate_links_sub_id_1", "sub_id_1"),
         Index("ix_affiliate_links_sub_id_2", "sub_id_2"),

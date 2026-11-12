@@ -12,6 +12,7 @@ testes nem `docs/architecture/`.
 - [Etapa 10 — testes E2E](Results/etapa-10-e2e.md)
 - [Etapa 11 — revisão de fechamento da fase 1](Results/etapa-11-fechamento.md)
 - [Etapa 12 — fechamento final da fase 1](Results/etapa-12-fechamento-final.md)
+- [Etapa 13 — modelagem de conversão, importações e metas](Results/etapa-13-modelagem-fase-2.md)
 
 ## Gotchas
 

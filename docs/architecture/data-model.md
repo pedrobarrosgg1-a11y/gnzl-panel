@@ -1,4 +1,4 @@
-# modelo de dados — fase 1
+# modelo de dados
 
 Banco: SQLite em `data/gnzl.db`, criado por migrations Alembic
 (`backend/migrations/`). Nunca por `create_all()`.
@@ -114,11 +114,98 @@ link_batches  1─N link_batch_items   N─1 products
 link_batches  1─N affiliate_links
 products      1─N affiliate_links
 affiliate_links 1─1 affiliate_links (replaced_by_id)
+orders        N─1 products            (opcional)
+clicks        N─1 import_logs         (opcional)
+orders        N─1 import_logs         (opcional)
+import_logs   1─N imported_rows
+imported_rows N─1 orders              (opcional)
+imported_rows N─1 clicks              (opcional)
 ```
 
-## Fase 2 e 3
+## Fase 2 — conversão, importação e metas
 
-`orders`, `clicks`, `goals`, `import_logs`, `imported_rows`, `sync_logs`,
-`videos`, `publication_templates` e `publications` serão modeladas quando as
-respectivas fases começarem, seguindo as mesmas decisões (centavos,
-`data_source`, UTC).
+### orders
+
+Uma linha por item do Conversion Report.
+
+| coluna | tipo | regra |
+|---|---|---|
+| `id` | INTEGER | PK |
+| `external_order_id` | VARCHAR(100) | obrigatório; pedido na origem |
+| `external_item_id` | INTEGER | opcional |
+| `shop_id` | INTEGER | opcional |
+| `product_id` | INTEGER | FK → `products`, SET NULL |
+| `title` | VARCHAR(300) | opcional; título no momento da importação |
+| `image_url` | TEXT | opcional |
+| `status` | VARCHAR(60) | status bruto do relatório |
+| `status_group` | VARCHAR(20) | `pending` · `approved` · `cancelled` · `refunded` · `unknown` |
+| `ordered_at` | DATETIME | obrigatório, UTC |
+| `completed_at` | DATETIME | opcional, UTC |
+| `quantity` | INTEGER | ≥ 0 |
+| `sales_cents` | INTEGER | valor de venda em centavos |
+| `commission_cents` | INTEGER | comissão em centavos |
+| `sub_id_1..5` | VARCHAR(64) | formato canônico |
+| `channel` | VARCHAR(80) | opcional |
+| `data_source` | VARCHAR(20) | `demo` · `shopee` · `csv` |
+| `import_id` | INTEGER | FK → `import_logs`, SET NULL |
+| `dedup_key` | VARCHAR(200) | único com `data_source` |
+| `created_at`, `updated_at` | DATETIME | UTC |
+
+`status_group` separa a classificação usada nas métricas do texto bruto da
+Shopee. O mesmo `dedup_key` em outra origem é permitido: demo, Shopee e CSV
+nunca se misturam.
+
+Índices: `ordered_at`, `status_group`, `product_id`, `sub_id_1`.
+
+### clicks
+
+| coluna | tipo | regra |
+|---|---|---|
+| `id` | INTEGER | PK |
+| `external_click_id` | VARCHAR(120) | opcional |
+| `clicked_at` | DATETIME | obrigatório, UTC |
+| `region` | VARCHAR(80) | opcional |
+| `channel` | VARCHAR(80) | opcional |
+| `referrer` | TEXT | opcional |
+| `sub_id_1..5` | VARCHAR(64) | formato canônico |
+| `data_source` | VARCHAR(20) | `demo` · `shopee` · `csv` |
+| `import_id` | INTEGER | FK → `import_logs`, SET NULL |
+| `dedup_key` | VARCHAR(200) | único com `data_source` |
+| `created_at` | DATETIME | UTC |
+
+Índices: `clicked_at`, `sub_id_1`. O clique não referencia produto porque o
+relatório de cliques pode não identificar o item.
+
+### goals
+
+`id` · `period_start` · `period_end` · `metric` (`commission_cents` |
+`sales_cents` | `orders` | `clicks`) · `target_value` · `note` · `created_at` ·
+`updated_at`
+
+Regras: `period_end >= period_start`, `target_value > 0` e um registro por
+(`period_start`, `period_end`, `metric`). O progresso não é persistido; é
+calculado na consulta, para não ficar desatualizado depois de uma importação.
+
+### import_logs
+
+`id` · `filename` · `report_type` (`orders` | `clicks`) · `status` (`running` |
+`completed` | `partial` | `failed`) · `data_source` · `rows_total` ·
+`rows_imported` · `rows_skipped` · `rows_failed` · `error_message` ·
+`created_at` · `finished_at`
+
+Regras: contadores não negativos e `imported + skipped + failed <= total`.
+
+### imported_rows
+
+`id` · `import_id` (FK → `import_logs`, CASCADE) · `row_number` · `status`
+(`imported` | `skipped` | `error`) · `order_id` (FK → `orders`, SET NULL) ·
+`click_id` (FK → `clicks`, SET NULL) · `message` · `raw_data` · `created_at`
+
+Único por (`import_id`, `row_number`). No máximo um vínculo de domínio por
+linha. Apagar a importação remove suas linhas; apagar um pedido ou clique
+preserva a linha de auditoria com o vínculo nulo.
+
+## Fase 3
+
+`videos`, `publication_templates` e `publications` serão modeladas quando a
+fase 3 começar, seguindo as mesmas decisões (centavos, `data_source`, UTC).

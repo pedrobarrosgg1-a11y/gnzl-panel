@@ -13,6 +13,8 @@ provedor `shopee` estiver habilitado.
 
 ## Estado atual
 
+### Fase 1
+
 | Etapa | Situação |
 |---|---|
 | 0 — Fundação (config, app mínimo, testes) | concluída |
@@ -36,6 +38,21 @@ oficial fica para uma etapa futura, após a liberação da Open API.
 
 A visão consolidada da fase 1 está em
 [`docs/architecture/phase-1.md`](docs/architecture/phase-1.md).
+
+### Fase 2
+
+| Etapa | Situação |
+|---|---|
+| 13 — Modelagem de conversão, importações e metas | concluída |
+| 14 — Importação CSV | pendente |
+| 15 — Agregações e endpoints do dashboard | pendente |
+| 16 — Tela de dashboard com gráfico e rankings | pendente |
+| 17 — Metas | pendente |
+| 18 — Testes E2E e fechamento da fase 2 | pendente |
+
+O escopo e os critérios da fase 2 estão em
+[`docs/architecture/phase-2.md`](docs/architecture/phase-2.md). A importação
+CSV depende da confirmação do formato real do relatório da Shopee.
 
 ## Requisitos
 
