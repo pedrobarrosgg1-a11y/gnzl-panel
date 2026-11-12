@@ -27,11 +27,12 @@ provedor `shopee` estiver habilitado.
 | 9 — Lotes e links (interface) | concluída |
 | 10 — Testes E2E (Playwright) | concluída |
 | 11 — Revisão de fechamento (config, design, código, docs) | concluída |
-| 12 — Fechamento final da fase 1 | pendente |
+| 12 — Fechamento final da fase 1 | concluída |
 
 O provedor oficial ainda não está implementado. Mesmo com as credenciais da
 Shopee preenchidas no `.env`, a aplicação continua em **modo demo**
-(`GNZL_PROVIDER=demo`), com dados fictícios identificados como tal.
+(`GNZL_PROVIDER=demo`), com dados fictícios identificados como tal. O provedor
+oficial fica para uma etapa futura, após a liberação da Open API.
 
 A visão consolidada da fase 1 está em
 [`docs/architecture/phase-1.md`](docs/architecture/phase-1.md).

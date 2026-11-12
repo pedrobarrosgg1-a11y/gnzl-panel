@@ -4,6 +4,13 @@ Registro consolidado do que foi construído e das decisões que as próximas
 fases devem preservar. Detalhes de esquema e de geração de links continuam em
 [`data-model.md`](data-model.md) e [`link-generation.md`](link-generation.md).
 
+## Status
+
+Fase 1 encerrada em 2026-11-12, com as etapas 0 a 12 concluídas. A entrega
+cobre busca, listas, Sub IDs, lotes, geração de links, histórico, interface e
+testes automatizados. O provedor oficial da Shopee continua fora do escopo e
+será tratado em uma etapa própria, após a liberação da Open API.
+
 ## Escopo entregue
 
 - Busca de produtos no provedor demo, com filtros, ordenação e paginação.
@@ -105,9 +112,24 @@ Os testes E2E usam `data/e2e/gnzl-e2e.db`, recriado pelas migrations, em portas
 próprias. Nenhum teste toca o banco de desenvolvimento. O typecheck dos testes
 E2E faz parte de `npm run build`.
 
+## Critérios de aceitação verificados
+
+| critério | evidência principal |
+|---|---|
+| Estrutura, configuração e execução local | `backend/tests/test_system.py`, `app.py` |
+| Banco criado por migrations e integridade | `backend/migrations/`, `backend/tests/test_schema.py` |
+| Contratos e provedor demo | `backend/tests/providers/`, `backend/tests/api/test_products.py` |
+| Busca com filtros, ordenação e paginação | `backend/tests/api/test_products.py`, `frontend/src/utils/search.test.ts` |
+| Listas com inclusão, edição e exclusão | `backend/tests/api/test_lists.py`, `frontend/src/pages/lists.test.tsx` |
+| Sub IDs normalizados e autocomplete | `backend/tests/services/test_normalization.py`, `backend/tests/api/test_sub_ids.py` |
+| Lotes com deduplicação, falha isolada e retry | `backend/tests/api/test_link_batches.py`, `backend/tests/services/test_link_batches.py`, `frontend/src/pages/lotes.test.tsx` |
+| Histórico com filtros e regeneração | `backend/tests/api/test_links.py`, `frontend/src/pages/links.test.tsx` |
+| Fluxo completo na interface | `frontend/tests/e2e/flows.spec.ts` |
+
 ## Limitações conhecidas da fase 1
 
-- Provedor oficial da Shopee pendente; tudo roda com dados demo identificados.
+- Provedor oficial da Shopee fora do escopo; tudo roda com dados demo
+  identificados.
 - A execução do lote é síncrona: `POST /run` responde ao final. Ainda não há
   fila, execução em segundo plano nem retry automático com backoff.
 - Não há autenticação de usuário. Isso é aceitável porque a aplicação é pessoal

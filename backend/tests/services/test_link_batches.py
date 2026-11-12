@@ -124,6 +124,31 @@ def test_usage_is_registered_only_once_across_retries(session: Session) -> None:
     assert values["sub_id_2"].usage_count == 1
 
 
+def test_usage_is_registered_when_first_run_fails_and_retry_succeeds(
+    session: Session,
+) -> None:
+    product = _add_product(session, 12, "https://shopee.com.br/retry-total-i.1.12")
+    provider = FlakyProvider({product.product_url})
+    service = _create_batch(session, provider, [product.id])
+
+    first = service.run(1)
+
+    assert first.status == "failed"
+    assert session.query(SubIdValue).count() == 0
+
+    second = service.run(1)
+
+    assert second.status == "completed"
+    values = {
+        value.dimension: value
+        for value in session.query(SubIdValue).all()
+    }
+    assert values["sub_id_1"].normalized_value == "instagram"
+    assert values["sub_id_1"].usage_count == 1
+    assert values["sub_id_2"].normalized_value == "stories"
+    assert values["sub_id_2"].usage_count == 1
+
+
 def test_batch_with_only_failures_is_marked_failed(session: Session) -> None:
     product = _add_product(session, 20, "https://shopee.com.br/falha-i.1.20")
     service = _create_batch(

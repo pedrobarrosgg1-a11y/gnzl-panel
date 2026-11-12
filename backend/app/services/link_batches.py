@@ -233,7 +233,7 @@ class LinkBatchService:
                 "Não há itens pendentes ou com falha para gerar neste lote."
             )
 
-        first_run = batch.status == "pending"
+        should_register_usage = batch.successful_items == 0
         batch.status = "running"
         batch.finished_at = None
         self._session.commit()
@@ -243,7 +243,7 @@ class LinkBatchService:
 
         try:
             self._apply_results(batch, items, results)
-            self._refresh_counters(batch, first_run=first_run)
+            self._refresh_counters(batch, register_usage=should_register_usage)
             self._session.commit()
         except Exception:
             # Nunca deixar o lote preso em "running": se a gravação falhar,
@@ -344,7 +344,7 @@ class LinkBatchService:
             item.error_code = None
             item.error_message = None
 
-    def _refresh_counters(self, batch: LinkBatch, *, first_run: bool) -> None:
+    def _refresh_counters(self, batch: LinkBatch, *, register_usage: bool) -> None:
         counts = batches_repo.counts_by_status(self._session, batch.id)
         batch.successful_items = counts.get("success", 0)
         batch.failed_items = counts.get("failed", 0)
@@ -358,8 +358,9 @@ class LinkBatchService:
             batch.status = "partial"
 
         # O autocomplete conta uso real, não tentativa: registra apenas na
-        # primeira execução e somente se ao menos um link foi gerado.
-        if first_run and batch.successful_items:
+        # primeira execução que gerar links. Um lote que falhou por completo
+        # pode registrar o uso quando o primeiro retry tiver sucesso.
+        if register_usage and batch.successful_items:
             values = {
                 dimension: value
                 for dimension, value in zip(_SUB_ID_DIMENSIONS, _batch_sub_ids(batch))

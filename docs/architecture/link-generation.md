@@ -48,8 +48,9 @@ imutável no histórico.
 O campo `attempts` conta execuções por item. Um novo `run` reexecuta somente os
 que falharam; itens já concluídos não são chamados de novo.
 
-O Sub ID é registrado no autocomplete apenas na primeira execução e se ao menos
-um link foi gerado. Repetições de retry não inflam a contagem de uso.
+O Sub ID é registrado no autocomplete apenas na primeira execução que gerar ao
+menos um link. Se a primeira tentativa falhar por completo, o primeiro retry
+bem-sucedido registra o uso. Repetições posteriores não inflam a contagem.
 
 ## Deduplicação e regeneração
 
