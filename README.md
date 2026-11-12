@@ -25,7 +25,8 @@ provedor `shopee` estiver habilitado.
 | 7 — Busca de produtos (interface) | concluída |
 | 8 — Listas de produtos (interface) | concluída |
 | 9 — Lotes e links (interface) | concluída |
-| 10 a 12 — E2E e fechamento | pendente |
+| 10 — Testes E2E (Playwright) | concluída |
+| 11 a 12 — Fechamento | pendente |
 
 O provedor oficial ainda não está implementado. Mesmo com as credenciais da
 Shopee preenchidas no `.env`, a aplicação continua em **modo demo**
@@ -85,6 +86,18 @@ npm run test
 npm run build
 ```
 
+```powershell
+# e2e (Playwright) — instale o Chromium uma vez
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+```
+
+Os testes E2E usam instâncias próprias: API em `127.0.0.1:8100` e interface
+em `127.0.0.1:5274`. O banco `data/e2e/gnzl-e2e.db` é descartável e recriado
+pelas migrations a cada execução, então os testes não leem nem alteram
+`data/gnzl.db`. Os servidores de desenvolvimento podem continuar rodando.
+
 ## Configuração
 
 Todas as variáveis usam o prefixo `GNZL_` e vivem no `.env` da raiz.
@@ -105,8 +118,10 @@ Credenciais nunca são expostas pela API, nem registradas em logs.
 
 ```
 backend/app/     API, regras de negócio, provedores, modelos e persistência
+backend/scripts/ Utilitários de execução (servidor E2E)
 backend/tests/   Pytest
 frontend/        Interface React (busca, listas, lotes e histórico)
+frontend/tests/  Testes E2E em Playwright
 data/            Banco SQLite e logs (não versionado)
 docs/            Arquitetura e decisões técnicas
 ```

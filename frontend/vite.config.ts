@@ -5,6 +5,9 @@ import svgr from "vite-plugin-svgr";
 
 // A API roda em 127.0.0.1:8000. O proxy evita CORS no desenvolvimento e
 // mantém o frontend chamando caminhos relativos, como em produção local.
+// Os testes E2E sobem a API em outra porta e apontam para ela por variável.
+const apiTarget = process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8000";
+
 export default defineConfig({
   plugins: [react(), svgr()],
   server: {
@@ -12,7 +15,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:8000",
+        target: apiTarget,
         changeOrigin: false,
       },
     },
@@ -23,6 +26,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
     css: true,
   },
 });

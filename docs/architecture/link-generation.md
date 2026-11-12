@@ -68,8 +68,8 @@ O link de afiliado é determinístico para a mesma URL de origem + Sub IDs.
 - A execução é síncrona: a requisição `POST /run` só responde ao final. Com o
   provedor demo é imediato; com a API oficial, o frontend deverá exibir estado
   de carregamento e respeitar o timeout.
-- O provedor oficial ainda não está implementado (Etapa 10). `GNZL_PROVIDER=shopee`
-  falha no startup de forma explícita.
+- O provedor oficial ainda não está implementado (fase 1, pendente).
+  `GNZL_PROVIDER=shopee` falha no startup de forma explícita.
 - Não há retry automático com backoff nesta etapa. O retry é manual, pelo mesmo
   endpoint, e reexecuta apenas os itens falhos.
 - O limite de 200 itens é local; os limites oficiais da Shopee serão aplicados

@@ -9,7 +9,9 @@ testes nem `docs/architecture/`.
 - [Etapas 6 e 7 — fundação do frontend e busca](Results/etapa-6-7-frontend-e-busca.md)
 - [Etapa 8 — listas de produtos](Results/etapa-8-listas.md)
 - [Etapa 9 — lotes e links](Results/etapa-9-lotes-links.md)
+- [Etapa 10 — testes E2E](Results/etapa-10-e2e.md)
 
 ## Gotchas
 
 - [Alembic, SQLite e CHECK constraints](gotchas/alembic-sqlite-check-constraints.md)
+- [Upsert de produtos precisa ser atômico](gotchas/upsert-concorrente-produtos.md)
