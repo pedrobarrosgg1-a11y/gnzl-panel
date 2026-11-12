@@ -1,0 +1,13 @@
+.badge {
+  gap: var(--gz-s2);
+}
+
+.ping {
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+}
+
+.ping::after {
+  inset: -4px;
+}

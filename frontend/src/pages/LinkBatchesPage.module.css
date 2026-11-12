@@ -1,0 +1,199 @@
+.form {
+  max-width: 860px;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gz-s4);
+}
+
+.textarea {
+  min-height: 84px;
+  padding-top: var(--gz-s3);
+  padding-bottom: var(--gz-s3);
+  resize: vertical;
+}
+
+.subIds {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.subIds legend {
+  margin-bottom: var(--gz-s2);
+}
+
+.subIds .note {
+  margin-bottom: var(--gz-s3);
+}
+
+.subIdGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--gz-s4);
+}
+
+.note {
+  max-width: 70ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gz-gray-500);
+}
+
+.inlineButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gz-black);
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.inlineLink {
+  color: var(--gz-black);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* --- origem no modo produtos --- */
+.originSummary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--gz-s4);
+  padding: var(--gz-s4) var(--gz-s6);
+  border-left: var(--gz-border) solid var(--gz-black);
+  border-radius: var(--gz-r-lg);
+  background: var(--gz-gray-100);
+}
+
+.originText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gz-s1);
+  min-width: 0;
+}
+
+.originTitle {
+  font-family: var(--gz-font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.productList {
+  max-width: 60ch;
+  margin: var(--gz-s1) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--gz-gray-700);
+}
+
+.productList li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.originActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gz-s2);
+}
+
+.feedback {
+  max-width: 860px;
+  margin-top: var(--gz-s4);
+}
+
+/* --- lista de lotes --- */
+.section {
+  margin-top: var(--gz-s12);
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 180px));
+  gap: var(--gz-s4);
+  align-items: end;
+  margin-bottom: var(--gz-s6);
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gz-s2);
+  min-width: 0;
+}
+
+.clearFilters {
+  justify-self: start;
+}
+
+.meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--gz-s4);
+  margin-bottom: var(--gz-s4);
+}
+
+.count {
+  font-size: 13px;
+  color: var(--gz-gray-500);
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.tableWrap table {
+  min-width: 720px;
+}
+
+.batchLink {
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--gz-gray-200);
+  text-underline-offset: 4px;
+  transition: text-decoration-color var(--gz-transition);
+}
+
+.batchLink:hover {
+  text-decoration-color: var(--gz-black);
+}
+
+.rowMeta {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--gz-gray-500);
+}
+
+.origin {
+  color: var(--gz-gray-700);
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .fields {
+    grid-template-columns: 1fr;
+  }
+
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .originActions {
+    width: 100%;
+  }
+}

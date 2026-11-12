@@ -1,6 +1,14 @@
 import type {
   AddItemsResponse,
+  AffiliateLink,
   CategoriesResponse,
+  LinkBatchDetail,
+  LinkBatchInput,
+  LinkBatchListResponse,
+  LinkBatchQuery,
+  LinkListResponse,
+  LinkQuery,
+  LinkRegenerateInput,
   ListInput,
   ListUpdateInput,
   ProductListDetail,
@@ -72,6 +80,31 @@ function buildQuery(params: ProductQuery): string {
   if (params.sort && params.sort !== "relevance") {
     search.set("sort", params.sort);
   }
+  search.set("page", String(params.page ?? 1));
+  search.set("page_size", String(params.page_size ?? 20));
+  return search.toString();
+}
+
+function buildBatchQuery(params: LinkBatchQuery): string {
+  const search = new URLSearchParams();
+  if (params.status) search.set("status", params.status);
+  if (params.source) search.set("source", params.source);
+  search.set("page", String(params.page ?? 1));
+  search.set("page_size", String(params.page_size ?? 20));
+  return search.toString();
+}
+
+function buildLinkQuery(params: LinkQuery): string {
+  const search = new URLSearchParams();
+  if (params.q) search.set("q", params.q);
+  if (params.batch_id !== undefined) {
+    search.set("batch_id", String(params.batch_id));
+  }
+  if (params.status) search.set("status", params.status);
+  if (params.sub_id_1) search.set("sub_id_1", params.sub_id_1);
+  if (params.sub_id_2) search.set("sub_id_2", params.sub_id_2);
+  if (params.sub_id_3) search.set("sub_id_3", params.sub_id_3);
+  if (params.source) search.set("source", params.source);
   search.set("page", String(params.page ?? 1));
   search.set("page_size", String(params.page_size ?? 20));
   return search.toString();
@@ -186,6 +219,51 @@ export const api = {
     return request<void>(
       `/lists/${listId}/items/${productId}`,
       jsonRequest("DELETE"),
+    );
+  },
+
+  getLinkBatches(
+    query: LinkBatchQuery = {},
+    init?: RequestInit,
+  ): Promise<LinkBatchListResponse> {
+    return request<LinkBatchListResponse>(
+      `/link-batches?${buildBatchQuery(query)}`,
+      init,
+    );
+  },
+
+  getLinkBatch(batchId: number, init?: RequestInit): Promise<LinkBatchDetail> {
+    return request<LinkBatchDetail>(`/link-batches/${batchId}`, init);
+  },
+
+  createLinkBatch(input: LinkBatchInput): Promise<LinkBatchDetail> {
+    return request<LinkBatchDetail>(
+      "/link-batches",
+      jsonRequest("POST", input),
+    );
+  },
+
+  runLinkBatch(batchId: number): Promise<LinkBatchDetail> {
+    return request<LinkBatchDetail>(
+      `/link-batches/${batchId}/run`,
+      jsonRequest("POST"),
+    );
+  },
+
+  getLinks(
+    query: LinkQuery = {},
+    init?: RequestInit,
+  ): Promise<LinkListResponse> {
+    return request<LinkListResponse>(`/links?${buildLinkQuery(query)}`, init);
+  },
+
+  regenerateLink(
+    linkId: number,
+    input: LinkRegenerateInput,
+  ): Promise<AffiliateLink> {
+    return request<AffiliateLink>(
+      `/links/${linkId}/regenerate`,
+      jsonRequest("POST", input),
     );
   },
 };

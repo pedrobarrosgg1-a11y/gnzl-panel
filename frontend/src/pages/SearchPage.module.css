@@ -168,11 +168,61 @@
   color: var(--gz-black);
 }
 
+.metaSide {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--gz-s2);
+}
+
 .metaNote {
   padding-bottom: 2px;
   font-size: 13px;
   color: var(--gz-gray-500);
   text-align: right;
+}
+
+/* --- seleção para lote --- */
+.selectionBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gz-s4);
+  margin-bottom: var(--gz-s6);
+  padding: var(--gz-s4) var(--gz-s6);
+  border-left: var(--gz-border) solid var(--gz-black);
+  border-radius: var(--gz-r-lg);
+  background: var(--gz-gray-100);
+}
+
+.selectionText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gz-s1);
+  min-width: 0;
+}
+
+.selectionCount {
+  font-family: var(--gz-font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.selectionNote {
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gz-gray-500);
+}
+
+.selectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gz-s2);
 }
 
 .state {
@@ -213,6 +263,10 @@
 
   .meta {
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .metaSide {
     align-items: flex-start;
   }
 

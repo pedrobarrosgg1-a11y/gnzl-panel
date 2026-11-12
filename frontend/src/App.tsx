@@ -2,7 +2,9 @@ import { BrowserRouter, Route, Routes } from "react-router";
 
 import { SystemConfigProvider } from "./hooks/useSystemConfig";
 import { AppLayout } from "./layouts/AppLayout";
-import { ComingSoonPage } from "./pages/ComingSoonPage";
+import { LinkBatchDetailPage } from "./pages/LinkBatchDetailPage";
+import { LinkBatchesPage } from "./pages/LinkBatchesPage";
+import { LinksPage } from "./pages/LinksPage";
 import { ListDetailPage } from "./pages/ListDetailPage";
 import { ListsPage } from "./pages/ListsPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -19,26 +21,9 @@ export function AppRoutes() {
           <Route index element={<SearchPage />} />
           <Route path="listas" element={<ListsPage />} />
           <Route path="listas/:listId" element={<ListDetailPage />} />
-          <Route
-            path="lotes"
-            element={
-              <ComingSoonPage
-                title="lotes"
-                description="os lotes vão executar a geração de links em massa e mostrar o resultado item a item."
-                phase="etapa 9"
-              />
-            }
-          />
-          <Route
-            path="links"
-            element={
-              <ComingSoonPage
-                title="links"
-                description="o histórico vai mostrar cada link gerado, com sub ids, status e data."
-                phase="etapa 9"
-              />
-            }
-          />
+          <Route path="lotes" element={<LinkBatchesPage />} />
+          <Route path="lotes/:batchId" element={<LinkBatchDetailPage />} />
+          <Route path="links" element={<LinksPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

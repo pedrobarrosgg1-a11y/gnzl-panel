@@ -10,6 +10,36 @@
   min-width: 880px;
 }
 
+.tableWithSelection {
+  min-width: 880px;
+}
+
+.selectCell {
+  width: 44px;
+  padding-right: 0;
+}
+
+.check {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--gz-black);
+  cursor: pointer;
+}
+
+.check input:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 .product {
   display: flex;
   align-items: center;

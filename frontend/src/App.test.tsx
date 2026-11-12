@@ -200,6 +200,47 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("seleciona produtos na busca e abre a criação de lote", async () => {
+    stubApi(defaultSearch, (url) => {
+      const pathname = new URL(url, "http://localhost").pathname;
+      if (pathname === "/api/link-batches") {
+        return Promise.resolve(
+          jsonResponse({
+            items: [],
+            page: 1,
+            page_size: 20,
+            total: 0,
+            has_next: false,
+          }),
+        );
+      }
+      return undefined;
+    });
+
+    renderApp();
+
+    await screen.findByText(fone.title);
+    fireEvent.click(
+      screen.getByRole("button", { name: "selecionar produtos" }),
+    );
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: `selecionar "${fone.title}"`,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "criar lote com 1 produto" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "lotes de links" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("1 produto selecionado"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(fone.title)).toBeInTheDocument();
+  });
+
   it("adiciona produtos à lista pelo modo lista da busca", async () => {
     let addedItems = [fone];
 

@@ -6,7 +6,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { DemoBadge } from "../components/DemoBadge";
 import { EmptyState } from "../components/EmptyState";
@@ -33,6 +33,8 @@ import {
 } from "../utils/search";
 import styles from "./SearchPage.module.css";
 
+const MAX_SELECTED_PRODUCTS = 200;
+
 type ResultsState =
   | { status: "loading" }
   | { status: "ready"; data: ProductSearchResponse }
@@ -51,6 +53,7 @@ interface ListFeedback {
 
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const paramsKey = searchParams.toString();
 
   const searchId = useId();
@@ -74,6 +77,10 @@ export function SearchPage() {
   const [listRetryToken, setListRetryToken] = useState(0);
   const [addingId, setAddingId] = useState<number | null>(null);
   const [listFeedback, setListFeedback] = useState<ListFeedback | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Map<number, Product>>(
+    () => new Map(),
+  );
 
   const params = useMemo(() => new URLSearchParams(paramsKey), [paramsKey]);
   const query = useMemo(() => queryFromParams(params), [params]);
@@ -175,12 +182,14 @@ export function SearchPage() {
       return;
     }
     setErrors({});
+    setSelected(new Map());
     setSearchParams(withListParam(paramsFromValues(form)));
   }
 
   function handleClear() {
     setForm(EMPTY_SEARCH_FORM);
     setErrors({});
+    setSelected(new Map());
     setSearchParams(withListParam(new URLSearchParams()));
   }
 
@@ -239,6 +248,36 @@ export function SearchPage() {
     } finally {
       setAddingId(null);
     }
+  }
+
+  function toggleSelected(product: Product) {
+    setSelected((current) => {
+      const next = new Map(current);
+      if (next.has(product.id)) {
+        next.delete(product.id);
+        return next;
+      }
+      if (next.size >= MAX_SELECTED_PRODUCTS) {
+        return current;
+      }
+      next.set(product.id, product);
+      return next;
+    });
+  }
+
+  function exitSelection() {
+    setSelected(new Map());
+    setSelecting(false);
+  }
+
+  function createBatchFromSelection() {
+    if (selected.size === 0) {
+      return;
+    }
+    const products = [...selected.values()];
+    navigate(`/lotes?produtos=${products.map((item) => item.id).join(",")}`, {
+      state: { products },
+    });
   }
 
   const categoryField = (
@@ -538,19 +577,82 @@ export function SearchPage() {
                         }`}
                   </p>
                 </div>
-                <p className={styles.metaNote}>
-                  {results.data.is_demo
-                    ? "dados fictícios do modo demo"
-                    : "dados da shopee"}
-                </p>
+                <div className={styles.metaSide}>
+                  <p className={styles.metaNote}>
+                    {results.data.is_demo
+                      ? "dados fictícios do modo demo"
+                      : "dados da shopee"}
+                  </p>
+                  {listId === null ? (
+                    <button
+                      type="button"
+                      className="gz-btn gz-btn--outline gz-btn--small"
+                      onClick={() => {
+                        if (selecting) {
+                          exitSelection();
+                        } else {
+                          setSelecting(true);
+                        }
+                      }}
+                    >
+                      {selecting ? "sair da seleção" : "selecionar produtos"}
+                    </button>
+                  ) : null}
+                </div>
               </div>
+
+              {selecting && listId === null ? (
+                <section
+                  className={styles.selectionBar}
+                  aria-label="seleção de produtos para o lote"
+                >
+                  <div className={styles.selectionText}>
+                    <span className="gz-label">seleção</span>
+                    <p className={styles.selectionCount}>
+                      {selected.size}{" "}
+                      {selected.size === 1 ? "produto selecionado" : "produtos selecionados"}
+                    </p>
+                    <p className={styles.selectionNote}>
+                      marque os produtos que vão entrar no lote. o limite é de{" "}
+                      {MAX_SELECTED_PRODUCTS} itens por lote.
+                    </p>
+                  </div>
+                  <div className={styles.selectionActions}>
+                    <button
+                      type="button"
+                      className="gz-btn gz-btn--primary gz-btn--small"
+                      onClick={createBatchFromSelection}
+                      disabled={selected.size === 0}
+                    >
+                      criar lote com {selected.size}{" "}
+                      {selected.size === 1 ? "produto" : "produtos"}
+                    </button>
+                    <button
+                      type="button"
+                      className="gz-btn gz-btn--ghost gz-btn--small"
+                      onClick={() => setSelected(new Map())}
+                      disabled={selected.size === 0}
+                    >
+                      limpar seleção
+                    </button>
+                  </div>
+                </section>
+              ) : null}
 
               <ProductTable
                 products={results.data.items}
                 caption={
                   listId !== null
                     ? "resultados da busca para adicionar à lista"
-                    : undefined
+                    : selecting
+                      ? "resultados da busca para selecionar produtos do lote"
+                      : undefined
+                }
+                selectable={selecting && listId === null}
+                selectedIds={new Set(selected.keys())}
+                onToggleSelect={toggleSelected}
+                selectionLimitReached={
+                  selected.size >= MAX_SELECTED_PRODUCTS
                 }
                 actionsLabel="adicionar à lista"
                 actions={

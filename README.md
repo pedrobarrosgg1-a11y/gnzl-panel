@@ -24,7 +24,8 @@ provedor `shopee` estiver habilitado.
 | 6 — Fundação do frontend | concluída |
 | 7 — Busca de produtos (interface) | concluída |
 | 8 — Listas de produtos (interface) | concluída |
-| 9 a 12 — Lotes, links, E2E e fechamento | pendente |
+| 9 — Lotes e links (interface) | concluída |
+| 10 a 12 — E2E e fechamento | pendente |
 
 O provedor oficial ainda não está implementado. Mesmo com as credenciais da
 Shopee preenchidas no `.env`, a aplicação continua em **modo demo**
