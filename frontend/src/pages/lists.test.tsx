@@ -15,6 +15,19 @@ const config: SystemConfig = {
   environment: "dev",
   provider: "demo",
   is_demo: true,
+  capabilities: {
+    category_filter: true,
+    price_filter: true,
+    commission_filter: true,
+    sorts: [
+      "relevance",
+      "commission_desc",
+      "sales_desc",
+      "rating_desc",
+      "price_asc",
+      "price_desc",
+    ],
+  },
 };
 
 const fone: Product = {

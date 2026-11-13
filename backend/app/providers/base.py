@@ -34,6 +34,23 @@ class ProductQuery:
 
 
 @dataclass(frozen=True)
+class ProviderCapabilities:
+    """O que a fonte de dados sabe atender sem filtragem local enganosa."""
+
+    category_filter: bool = True
+    price_filter: bool = True
+    commission_filter: bool = True
+    sorts: tuple[SortOption, ...] = (
+        "relevance",
+        "commission_desc",
+        "sales_desc",
+        "rating_desc",
+        "price_asc",
+        "price_desc",
+    )
+
+
+@dataclass(frozen=True)
 class ProductRecord:
     """Produto normalizado, independente do formato da fonte.
 

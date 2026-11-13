@@ -15,11 +15,13 @@ import { PageHeader } from "../components/PageHeader";
 import { Pagination } from "../components/Pagination";
 import { ProductTable } from "../components/ProductTable";
 import { CheckIcon, PlusIcon, SearchIcon } from "../components/icons";
+import { useSystemConfig } from "../hooks/useSystemConfig";
 import { api, isAbortError, toApiError, type ApiError } from "../services/api";
 import type {
   Product,
   ProductListDetail,
   ProductSearchResponse,
+  SortOption,
 } from "../types/api";
 import {
   EMPTY_SEARCH_FORM,
@@ -83,7 +85,33 @@ export function SearchPage() {
   );
 
   const params = useMemo(() => new URLSearchParams(paramsKey), [paramsKey]);
-  const query = useMemo(() => queryFromParams(params), [params]);
+  const { status: configStatus, config } = useSystemConfig();
+  const capabilities = config?.capabilities;
+  const allowedSorts = useMemo<SortOption[]>(
+    () => capabilities?.sorts ?? SORT_OPTIONS.map((option) => option.value),
+    [capabilities],
+  );
+  const supportsCategory = capabilities?.category_filter ?? true;
+  const supportsPrice = capabilities?.price_filter ?? true;
+  const supportsCommission = capabilities?.commission_filter ?? true;
+  const missingFilters = [
+    !supportsCategory ? "categoria" : null,
+    !supportsPrice ? "preço" : null,
+    !supportsCommission ? "comissão" : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const sortOptions = useMemo(
+    () => SORT_OPTIONS.filter((option) => allowedSorts.includes(option.value)),
+    [allowedSorts],
+  );
+  const query = useMemo(() => {
+    const parsed = queryFromParams(params);
+    if (parsed.sort && !allowedSorts.includes(parsed.sort)) {
+      parsed.sort = "relevance";
+    }
+    return parsed;
+  }, [params, allowedSorts]);
   const listId = useMemo(() => {
     const raw = params.get("lista");
     if (!raw) {
@@ -104,11 +132,23 @@ export function SearchPage() {
 
   // A URL é a fonte da verdade: voltar/avançar no navegador repõe o formulário.
   useEffect(() => {
-    setForm(formValuesFromParams(new URLSearchParams(paramsKey)));
+    setForm(normalizeValues(formValuesFromParams(new URLSearchParams(paramsKey))));
     setErrors({});
-  }, [paramsKey]);
+  }, [
+    paramsKey,
+    allowedSorts,
+    supportsCategory,
+    supportsPrice,
+    supportsCommission,
+  ]);
 
   useEffect(() => {
+    if (!supportsCategory) {
+      setCategories([]);
+      setCategoriesFailed(false);
+      return;
+    }
+
     const controller = new AbortController();
     api
       .getCategories({ signal: controller.signal })
@@ -123,9 +163,13 @@ export function SearchPage() {
         setCategoriesFailed(true);
       });
     return () => controller.abort();
-  }, []);
+  }, [supportsCategory]);
 
   useEffect(() => {
+    if (configStatus === "loading") {
+      return;
+    }
+
     const controller = new AbortController();
     setResults({ status: "loading" });
 
@@ -140,7 +184,7 @@ export function SearchPage() {
       });
 
     return () => controller.abort();
-  }, [query, retryToken]);
+  }, [query, retryToken, configStatus]);
 
   useEffect(() => {
     if (listId === null) {
@@ -174,16 +218,28 @@ export function SearchPage() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function normalizeValues(values: SearchFormValues): SearchFormValues {
+    return {
+      ...values,
+      category: supportsCategory ? values.category : "",
+      priceMin: supportsPrice ? values.priceMin : "",
+      priceMax: supportsPrice ? values.priceMax : "",
+      commissionMin: supportsCommission ? values.commissionMin : "",
+      sort: allowedSorts.includes(values.sort) ? values.sort : "relevance",
+    };
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const { query: built, errors: nextErrors } = buildSearch(form);
+    const values = normalizeValues(form);
+    const { query: built, errors: nextErrors } = buildSearch(values);
     if (!built) {
       setErrors(nextErrors);
       return;
     }
     setErrors({});
     setSelected(new Map());
-    setSearchParams(withListParam(paramsFromValues(form)));
+    setSearchParams(withListParam(paramsFromValues(values)));
   }
 
   function handleClear() {
@@ -410,7 +466,7 @@ export function SearchPage() {
         </div>
 
         <div className={styles.filters}>
-          {categoryField}
+          {supportsCategory ? categoryField : null}
 
           <div className={styles.field}>
             <label className="gz-label" htmlFor={sortId}>
@@ -424,7 +480,7 @@ export function SearchPage() {
                 updateField("sort", event.target.value as SearchFormValues["sort"])
               }
             >
-              {SORT_OPTIONS.map((option) => (
+              {sortOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -432,10 +488,12 @@ export function SearchPage() {
             </select>
           </div>
 
-          <div className={styles.field}>
-            <label className="gz-label" htmlFor={priceMinId}>
-              preço mínimo
-            </label>
+          {supportsPrice ? (
+            <>
+              <div className={styles.field}>
+                <label className="gz-label" htmlFor={priceMinId}>
+                  preço mínimo
+                </label>
             <input
               id={priceMinId}
               className="gz-input"
@@ -481,11 +539,14 @@ export function SearchPage() {
               </p>
             ) : null}
           </div>
+            </>
+          ) : null}
 
-          <div className={styles.field}>
-            <label className="gz-label" htmlFor={commissionId}>
-              comissão mínima
-            </label>
+          {supportsCommission ? (
+            <div className={styles.field}>
+              <label className="gz-label" htmlFor={commissionId}>
+                comissão mínima
+              </label>
             <input
               id={commissionId}
               className="gz-input"
@@ -505,7 +566,8 @@ export function SearchPage() {
                 {errors.commissionMin}
               </p>
             ) : null}
-          </div>
+            </div>
+          ) : null}
 
           <button
             type="button"
@@ -515,6 +577,12 @@ export function SearchPage() {
             limpar filtros
           </button>
         </div>
+
+        {missingFilters ? (
+          <p className={styles.filterNote}>
+            {`a API da shopee não permite filtrar por ${missingFilters}. use o termo de busca e a ordenação.`}
+          </p>
+        ) : null}
 
         {errors.range ? (
           <p className={styles.formError} role="alert">
@@ -553,7 +621,11 @@ export function SearchPage() {
           results.data.items.length === 0 ? (
             <EmptyState
               title="nada encontrado"
-              description="nenhum produto corresponde a esses filtros. ajuste o termo, a faixa de preço ou a comissão mínima."
+              description={
+                supportsCategory || supportsPrice || supportsCommission
+                  ? "nenhum produto corresponde a esses filtros. ajuste o termo, a faixa de preço ou a comissão mínima."
+                  : "nenhum produto corresponde a esse termo. tente outra palavra-chave."
+              }
               action={
                 <button
                   type="button"

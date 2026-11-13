@@ -25,6 +25,19 @@ def test_config_reports_demo_mode(client: TestClient) -> None:
         "environment": "dev",
         "provider": "demo",
         "is_demo": True,
+        "capabilities": {
+            "category_filter": True,
+            "price_filter": True,
+            "commission_filter": True,
+            "sorts": [
+                "relevance",
+                "commission_desc",
+                "sales_desc",
+                "rating_desc",
+                "price_asc",
+                "price_desc",
+            ],
+        },
     }
 
 
@@ -35,11 +48,17 @@ def test_config_reports_shopee_provider_without_leaking_credentials() -> None:
         shopee_app_id="app-id-secreto",
         shopee_secret="segredo",
     )
-    demo_providers = build_providers(Settings(provider="demo"))
-    response = TestClient(create_app(settings, providers=demo_providers)).get("/api/config")
+    providers = build_providers(settings)
+    response = TestClient(create_app(settings, providers=providers)).get("/api/config")
 
     assert response.status_code == 200
-    assert response.json()["is_demo"] is False
+    body = response.json()
+    assert body["is_demo"] is False
+    assert body["provider"] == "shopee"
+    assert body["capabilities"]["category_filter"] is False
+    assert body["capabilities"]["price_filter"] is False
+    assert body["capabilities"]["commission_filter"] is False
+    assert "rating_desc" not in body["capabilities"]["sorts"]
     assert "app-id-secreto" not in response.text
     assert "segredo" not in response.text
 

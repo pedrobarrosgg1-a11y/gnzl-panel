@@ -4,10 +4,21 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.providers.base import SortOption
+
 
 class HealthResponse(BaseModel):
     status: Literal["ok"]
     version: str
+
+
+class CapabilitiesResponse(BaseModel):
+    """O que a fonte de dados atual sabe atender."""
+
+    category_filter: bool
+    price_filter: bool
+    commission_filter: bool
+    sorts: list[SortOption]
 
 
 class ConfigResponse(BaseModel):
@@ -20,3 +31,4 @@ class ConfigResponse(BaseModel):
     environment: Literal["dev", "prod"]
     provider: Literal["demo", "shopee"]
     is_demo: bool
+    capabilities: CapabilitiesResponse

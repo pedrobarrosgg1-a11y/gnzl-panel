@@ -4,7 +4,13 @@ from fastapi import APIRouter, Depends
 
 from app import __version__
 from app.core.config import Settings, get_settings
-from app.schemas.system import ConfigResponse, HealthResponse
+from app.core.deps import get_providers
+from app.providers.registry import Providers
+from app.schemas.system import (
+    CapabilitiesResponse,
+    ConfigResponse,
+    HealthResponse,
+)
 
 router = APIRouter(tags=["sistema"])
 
@@ -15,10 +21,20 @@ def health() -> HealthResponse:
 
 
 @router.get("/config", response_model=ConfigResponse)
-def config(settings: Settings = Depends(get_settings)) -> ConfigResponse:
+def config(
+    settings: Settings = Depends(get_settings),
+    providers: Providers = Depends(get_providers),
+) -> ConfigResponse:
+    capabilities = providers.capabilities
     return ConfigResponse(
         version=__version__,
         environment=settings.environment,
         provider=settings.provider,
         is_demo=settings.is_demo,
+        capabilities=CapabilitiesResponse(
+            category_filter=capabilities.category_filter,
+            price_filter=capabilities.price_filter,
+            commission_filter=capabilities.commission_filter,
+            sorts=list(capabilities.sorts),
+        ),
     )

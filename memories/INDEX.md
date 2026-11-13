@@ -14,9 +14,11 @@ testes nem `docs/architecture/`.
 - [Etapa 12 — fechamento final da fase 1](Results/etapa-12-fechamento-final.md)
 - [Etapa 13 — modelagem de conversão, importações e metas](Results/etapa-13-modelagem-fase-2.md)
 - [Etapa 14 — importação CSV](Results/etapa-14-importacao-csv.md)
+- [Etapa 19a — provedor oficial da Shopee](Results/etapa-19a-provedor-shopee.md)
 
 ## Gotchas
 
 - [Alembic, SQLite e CHECK constraints](gotchas/alembic-sqlite-check-constraints.md)
 - [Upsert de produtos precisa ser atômico](gotchas/upsert-concorrente-produtos.md)
 - [Relationship nula sobrescreve a FK](gotchas/sqlalchemy-relacionamento-nulo-sobrescreve-fk.md)
+- [API real da Shopee difere da documentação](gotchas/shopee-api-real-vs-documentacao.md)

@@ -1,9 +1,16 @@
 """Testes da busca de produtos pela API."""
 
+import httpx
 from fastapi.testclient import TestClient
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings
+from app.main import create_app
 from app.models import Product
+from app.providers.capabilities import SHOPEE_CAPABILITIES
+from app.providers.registry import Providers
+from app.providers.shopee import ShopeeClient, ShopeeProvider
 
 
 def test_search_returns_demo_page(client: TestClient) -> None:
@@ -143,3 +150,51 @@ def test_categories_come_from_the_provider(client: TestClient) -> None:
     assert body["is_demo"] is True
     assert "Beleza" in body["items"]
     assert body["items"] == sorted(body["items"], key=str.casefold)
+
+
+def _shopee_client_without_network(engine: Engine) -> TestClient:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("filtro não suportado não deveria chamar a Shopee")
+
+    shopee_client = ShopeeClient(
+        app_id="app",
+        secret="secret",
+        api_base="https://shopee.test/graphql",
+        timeout=5.0,
+        transport=httpx.MockTransport(handler),
+    )
+    provider = ShopeeProvider(shopee_client)
+    providers = Providers(
+        product=provider,
+        link=provider,
+        source="shopee",
+        capabilities=SHOPEE_CAPABILITIES,
+    )
+    app = create_app(
+        Settings(provider="shopee", environment="dev"),
+        providers=providers,
+        engine=engine,
+    )
+    return TestClient(app)
+
+
+def test_shopee_rejects_price_filter_with_validation_error(engine: Engine) -> None:
+    with _shopee_client_without_network(engine) as client:
+        response = client.get(
+            "/api/products/search", params={"price_min_cents": 1000}
+        )
+
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error["code"] == "validation_error"
+    assert "price" in error["details"]["unsupported"]
+
+
+def test_shopee_rejects_rating_sort_with_validation_error(engine: Engine) -> None:
+    with _shopee_client_without_network(engine) as client:
+        response = client.get(
+            "/api/products/search", params={"sort": "rating_desc"}
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["details"]["unsupported"]["sort"]

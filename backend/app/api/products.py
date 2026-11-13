@@ -51,7 +51,9 @@ def search_products(
         page=page,
         page_size=page_size,
     )
-    service = ProductService(session, providers.product)
+    service = ProductService(
+        session, providers.product, capabilities=providers.capabilities
+    )
     result, products = service.search(query)
 
     return ProductSearchResponse(

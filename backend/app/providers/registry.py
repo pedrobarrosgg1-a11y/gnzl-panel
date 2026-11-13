@@ -8,8 +8,14 @@ from dataclasses import dataclass
 
 from app.core.config import Settings
 from app.core.errors import ConfigurationError
-from app.providers.base import LinkProvider, ProductProvider
+from app.providers.base import (
+    LinkProvider,
+    ProductProvider,
+    ProviderCapabilities,
+)
+from app.providers.capabilities import DEMO_CAPABILITIES, SHOPEE_CAPABILITIES
 from app.providers.demo import DemoProvider
+from app.providers.shopee import ShopeeClient, ShopeeProvider
 
 
 @dataclass(frozen=True)
@@ -17,6 +23,7 @@ class Providers:
     product: ProductProvider
     link: LinkProvider
     source: str
+    capabilities: ProviderCapabilities = DEMO_CAPABILITIES
 
 
 def build_providers(settings: Settings) -> Providers:
@@ -25,10 +32,24 @@ def build_providers(settings: Settings) -> Providers:
             raise ConfigurationError(
                 "GNZL_PROVIDER=shopee exige GNZL_SHOPEE_APP_ID e GNZL_SHOPEE_SECRET no .env."
             )
-        raise ConfigurationError(
-            "O provedor oficial ainda não foi implementado. "
-            "Use GNZL_PROVIDER=demo até a integração ser validada."
+        client = ShopeeClient(
+            app_id=settings.shopee_app_id,
+            secret=settings.shopee_secret,
+            api_base=settings.shopee_api_base,
+            timeout=settings.http_timeout_seconds,
+        )
+        provider = ShopeeProvider(client)
+        return Providers(
+            product=provider,
+            link=provider,
+            source=provider.name,
+            capabilities=SHOPEE_CAPABILITIES,
         )
 
     demo = DemoProvider()
-    return Providers(product=demo, link=demo, source=demo.name)
+    return Providers(
+        product=demo,
+        link=demo,
+        source=demo.name,
+        capabilities=DEMO_CAPABILITIES,
+    )

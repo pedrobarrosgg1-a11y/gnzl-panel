@@ -15,6 +15,19 @@ const config: SystemConfig = {
   environment: "dev",
   provider: "demo",
   is_demo: true,
+  capabilities: {
+    category_filter: true,
+    price_filter: true,
+    commission_filter: true,
+    sorts: [
+      "relevance",
+      "commission_desc",
+      "sales_desc",
+      "rating_desc",
+      "price_asc",
+      "price_desc",
+    ],
+  },
 };
 
 const fone: Product = {
@@ -82,14 +95,18 @@ type ExtraRoute = (
   init: RequestInit,
 ) => Promise<Response> | undefined;
 
-function stubApi(search: (url: string) => Promise<Response>, extra?: ExtraRoute) {
+function stubApi(
+  search: (url: string) => Promise<Response>,
+  extra?: ExtraRoute,
+  configOverride?: SystemConfig,
+) {
   const fetchMock = vi.fn(
     (input: RequestInfo | URL, init: RequestInit = {}) => {
       const url = String(input);
       const pathname = new URL(url, "http://localhost").pathname;
 
       if (pathname === "/api/config") {
-        return Promise.resolve(jsonResponse(config));
+        return Promise.resolve(jsonResponse(configOverride ?? config));
       }
       if (pathname === "/api/products/categories") {
         return Promise.resolve(
@@ -146,6 +163,44 @@ describe("App", () => {
     expect(await screen.findByText(fone.title)).toBeInTheDocument();
     expect(screen.getAllByText("modo demo").length).toBeGreaterThan(0);
     expect(screen.getByText("1 achado")).toBeInTheDocument();
+    expect(screen.getByLabelText("categoria")).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "melhor avaliação" }),
+    ).toBeInTheDocument();
+  });
+
+  it("esconde filtros e ordenações que a shopee não suporta", async () => {
+    const shopeeConfig: SystemConfig = {
+      ...config,
+      provider: "shopee",
+      is_demo: false,
+      capabilities: {
+        category_filter: false,
+        price_filter: false,
+        commission_filter: false,
+        sorts: [
+          "relevance",
+          "commission_desc",
+          "sales_desc",
+          "price_asc",
+          "price_desc",
+        ],
+      },
+    };
+    stubApi(defaultSearch, undefined, shopeeConfig);
+    renderApp(["/?sort=rating_desc"]);
+
+    expect(await screen.findByText(fone.title)).toBeInTheDocument();
+    expect(screen.queryByLabelText("categoria")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("preço mínimo")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("preço máximo")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("comissão mínima")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "melhor avaliação" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/a API da shopee não permite filtrar/),
+    ).toBeInTheDocument();
   });
 
   it("envia o termo digitado para a API", async () => {

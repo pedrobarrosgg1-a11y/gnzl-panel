@@ -6,11 +6,19 @@ export type SortOption =
   | "price_asc"
   | "price_desc";
 
+export interface SystemCapabilities {
+  category_filter: boolean;
+  price_filter: boolean;
+  commission_filter: boolean;
+  sorts: SortOption[];
+}
+
 export interface SystemConfig {
   version: string;
   environment: "dev" | "prod";
   provider: "demo" | "shopee";
   is_demo: boolean;
+  capabilities: SystemCapabilities;
 }
 
 export interface Product {

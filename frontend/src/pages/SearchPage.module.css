@@ -145,6 +145,14 @@
   font-size: 13px;
 }
 
+.filterNote {
+  max-width: 68ch;
+  margin-top: var(--gz-s3);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--gz-gray-500);
+}
+
 /* --- resultados --- */
 .results {
   min-height: 220px;
