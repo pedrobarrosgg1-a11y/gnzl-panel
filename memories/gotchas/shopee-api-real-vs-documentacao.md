@@ -23,8 +23,10 @@ divergências que quebrariam o código se fossem seguidas literalmente.
 
 - `10010`: `Unknown type "GenerateShortLinkInput"`.
 - `10010`: `Cannot query field "orderStatus" on type "ConversionReport"`.
-- `10000`: `System Error` intermitente, principalmente com `listType: 0`,
-  `limit: 1` e após muitas chamadas seguidas.
+- `10000`: `System Error` intermitente. Não é exclusivo de `listType: 0` nem de
+  muitas chamadas: em 20 chamadas válidas e idênticas (`listType: 1`, página 2),
+  11 funcionaram. As falhas voltam em menos de 1 s; as respostas boas levam
+  cerca de 5 s. Uma sequência de retries pode atravessar uma janela ruim.
 
 ## Solução
 
@@ -32,7 +34,8 @@ divergências que quebrariam o código se fossem seguidas literalmente.
 - `listType: 1` sempre explícito.
 - `ShortLinkInput` na mutation.
 - `conversionStatus` no relatório.
-- Códigos `10000` e `10030` com retry e backoff apenas em queries.
+- `10000` com até 8 tentativas em queries e backoff de 0,5 s a 2 s.
+- `10030`/HTTP 429 com no máximo 3 tentativas, para respeitar o rate limit.
 - Mutations sem retry: uma resposta perdida pode significar link já criado.
 
 ## Lição

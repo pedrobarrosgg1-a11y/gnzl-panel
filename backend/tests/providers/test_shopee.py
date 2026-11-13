@@ -169,6 +169,42 @@ def test_search_retries_transient_system_error() -> None:
     assert len(page.items) == 1
 
 
+def test_search_gives_transient_system_error_eight_attempts() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls < 8:
+            return httpx.Response(
+                200, json={"errors": [{"extensions": {"code": 10000}}]}
+            )
+        return httpx.Response(200, json=search_response([product_node()]))
+
+    page = ShopeeProvider(make_client(handler)).search_products(ProductQuery())
+
+    assert calls == 8
+    assert len(page.items) == 1
+
+
+def test_transient_system_error_surfaces_after_eight_attempts() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(
+            200, json={"errors": [{"extensions": {"code": 10000}}]}
+        )
+
+    provider = ShopeeProvider(make_client(handler))
+
+    with pytest.raises(ProviderUnavailable):
+        provider.search_products(ProductQuery())
+
+    assert calls == 8
+
+
 def test_rate_limit_is_retried_then_surfaced() -> None:
     calls = 0
 
@@ -189,6 +225,7 @@ def test_rate_limit_is_retried_then_surfaced() -> None:
     with pytest.raises(ProviderRateLimited):
         provider.search_products(ProductQuery())
 
+    # Rate limit tem teto próprio de tentativas, menor que o dos erros 10000.
     assert calls == 3
 
 

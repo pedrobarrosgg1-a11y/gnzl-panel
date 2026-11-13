@@ -5,8 +5,11 @@ Pontos que a documentação não oficial erra ou omite e que este módulo trata:
 - a assinatura cobre os bytes JSON exatos enviados, por isso o corpo é
   serializado em UTF-8 compacto (``ensure_ascii=False``) antes de assinar;
 - ``generateShortLink`` recebe ``input: ShortLinkInput``, não argumentos soltos;
-- o código ``10000`` aparece de forma intermitente e é tratado como transitório
-  apenas em consultas. Mutations nunca são repetidas automaticamente, porque
+- o código ``10000`` aparece de forma intermitente, mesmo em chamadas idênticas
+  e com parâmetros válidos, com falhas rápidas e taxa de sucesso próxima de
+  metade. Por isso as consultas usam oito tentativas com backoff curto; o
+  limite de rate limit continua em três, para não insistir quando a Shopee
+  pede para desacelerar. Mutations nunca são repetidas automaticamente, porque
   uma resposta perdida pode significar que o link já foi criado.
 """
 
@@ -47,7 +50,8 @@ class ShopeeClient:
         api_base: str,
         timeout: float,
         transport: httpx.BaseTransport | None = None,
-        max_attempts: int = 3,
+        max_attempts: int = 8,
+        max_rate_limit_attempts: int = 3,
         retry_base_delay: float = 0.5,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
@@ -57,6 +61,7 @@ class ShopeeClient:
         self._timeout = timeout
         self._transport = transport
         self._max_attempts = max(1, max_attempts)
+        self._max_rate_limit_attempts = max(1, max_rate_limit_attempts)
         self._retry_base_delay = retry_base_delay
         self._sleep = sleep
 
@@ -74,6 +79,7 @@ class ShopeeClient:
         """
         body = self._encode(query, variables)
         attempts = self._max_attempts if retry else 1
+        rate_limit_failures = 0
         last_error: AppError | None = None
 
         for attempt in range(attempts):
@@ -98,10 +104,13 @@ class ShopeeClient:
                     "A Shopee recusou a autenticação da integração."
                 )
             if response.status_code == 429:
+                rate_limit_failures += 1
                 last_error = ProviderRateLimited(
                     "A Shopee limitou a taxa de requisições.",
                     retry_after=_retry_after(response),
                 )
+                if not retry or rate_limit_failures >= self._max_rate_limit_attempts:
+                    break
                 continue
             if response.status_code >= 500:
                 last_error = ProviderUnavailable(
@@ -117,7 +126,16 @@ class ShopeeClient:
             errors = payload.get("errors")
             if errors:
                 error = self._error_from(errors)
-                if isinstance(error, (ProviderRateLimited, ProviderUnavailable)):
+                if isinstance(error, ProviderRateLimited):
+                    rate_limit_failures += 1
+                    if (
+                        not retry
+                        or rate_limit_failures >= self._max_rate_limit_attempts
+                    ):
+                        raise error
+                    last_error = error
+                    continue
+                if isinstance(error, ProviderUnavailable):
                     if not retry:
                         raise error
                     last_error = error
@@ -218,7 +236,8 @@ class ShopeeClient:
         )
 
     def _backoff(self, attempt: int) -> float:
-        return min(self._retry_base_delay * (2 ** (attempt - 1)), 8.0)
+        # Falhas 10000 retornam rápido; não vale esperar 8 s entre tentativas.
+        return min(self._retry_base_delay * (2 ** (attempt - 1)), 2.0)
 
 
 def _retry_after(response: httpx.Response) -> int | None:

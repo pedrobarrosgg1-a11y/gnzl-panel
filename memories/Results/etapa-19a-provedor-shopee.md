@@ -39,8 +39,8 @@ Arquivos principais:
 
 ## Evidências
 
-- `pytest`: **186 testes aprovados** (164 anteriores + 22 novos).
-- `vitest`: **55 testes aprovados** (54 anteriores + 1 novo).
+- `pytest`: **188 testes aprovados** (186 anteriores + 2 novos).
+- `vitest`: **55 testes aprovados**.
 - `npm run build`: aprovado.
 - Validação manual real: busca com `keyword="fone"` retornou 3 itens, com
   preço `3671` centavos, comissão `300` bp e avaliação `500`; `has_next=true`.
@@ -48,11 +48,21 @@ Arquivos principais:
   caracteres), sem gravar no banco local.
 - `/api/config` em modo shopee retornou as capacidades corretas e nenhuma
   credencial.
+- Validação manual da interface, com banco descartável e backend em porta
+  isolada:
+  - busca por `fone` retornou 20 itens, sem campos de categoria/preço/comissão;
+  - páginas 2 e 3 carregaram com itens diferentes da página 1;
+  - ordenação por maior comissão trouxe 53%, 45%, 43% nas primeiras linhas;
+  - filtros não suportados responderam `422 validation_error`;
+  - lote criado pela seleção gerou `https://s.shopee.com.br/4LKtkUwbE8` com 1
+    tentativa e Sub ID `validacao19aui`, visível no histórico;
+  - console do navegador sem erros após a correção do retry.
+- Um lote de 1 item consumiu uma única mutation; a geração não foi repetida.
 
 ## Limitações
 
 - Conversões (19b) ainda não sincronizadas.
 - Sem catálogo de nomes de categoria.
 - Sem total de resultados.
-- `10000` continua intermitente sob muitas chamadas; após 3 tentativas vira
-  `503 provider_unavailable`.
+- `10000` continua intermitente; após 8 tentativas em uma query vira
+  `503 provider_unavailable` e a interface oferece tentar novamente.

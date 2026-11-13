@@ -120,7 +120,7 @@ Filtrar localmente depois da busca deixaria paginação e contagem erradas.
 | `10020` | credencial/assinatura recusada → `provider_auth_error`, sem retry |
 | `10035` | conta sem acesso à Open API → `provider_auth_error`, sem retry |
 | `10030` | rate limit → backoff e `provider_rate_limited` após 3 tentativas |
-| `10000` | erro interno intermitente → retry com backoff em queries |
+| `10000` | erro interno intermitente → até 8 tentativas em queries, com backoff de 0,5 s a 2 s |
 | `11001` | parâmetros inválidos → `provider_invalid_response`, sem retry |
 
 HTTP `401/403`, `429`, `5xx`, timeouts e falhas de rede também são tratados.
@@ -159,5 +159,5 @@ A validação manual fez uma busca real e gerou um link de teste com Sub ID
   validar o mapeamento.
 - Sem filtro de categoria por nome enquanto não houver catálogo.
 - Sem total de resultados.
-- `10000` pode aparecer mesmo com retry; nesse caso a busca retorna
-  `503 provider_unavailable`.
+- `10000` pode aparecer mesmo após as 8 tentativas; nesse caso a busca retorna
+  `503 provider_unavailable` e a interface oferece tentar novamente.
