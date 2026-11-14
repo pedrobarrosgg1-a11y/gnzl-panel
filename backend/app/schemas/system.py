@@ -18,6 +18,8 @@ class CapabilitiesResponse(BaseModel):
     category_filter: bool
     price_filter: bool
     commission_filter: bool
+    conversion_sync: bool
+    conversion_window_days: int
     sorts: list[SortOption]
 
 

@@ -16,6 +16,8 @@ def test_demo_is_the_default_provider() -> None:
     assert isinstance(providers.link, DemoProvider)
     assert providers.source == "demo"
     assert providers.capabilities.category_filter is True
+    assert providers.capabilities.conversion_sync is False
+    assert providers.conversions is None
     assert "rating_desc" in providers.capabilities.sorts
 
 
@@ -40,4 +42,6 @@ def test_shopee_with_credentials_builds_the_official_provider() -> None:
     assert isinstance(providers.link, ShopeeProvider)
     assert providers.source == "shopee"
     assert providers.capabilities.price_filter is False
+    assert providers.capabilities.conversion_sync is True
+    assert isinstance(providers.conversions, ShopeeProvider)
     assert "rating_desc" not in providers.capabilities.sorts

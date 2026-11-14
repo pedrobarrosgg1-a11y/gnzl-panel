@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from app.core.config import Settings
 from app.core.errors import ConfigurationError
 from app.providers.base import (
+    ConversionProvider,
     LinkProvider,
     ProductProvider,
     ProviderCapabilities,
@@ -24,6 +25,7 @@ class Providers:
     link: LinkProvider
     source: str
     capabilities: ProviderCapabilities = DEMO_CAPABILITIES
+    conversions: ConversionProvider | None = None
 
 
 def build_providers(settings: Settings) -> Providers:
@@ -44,6 +46,7 @@ def build_providers(settings: Settings) -> Providers:
             link=provider,
             source=provider.name,
             capabilities=SHOPEE_CAPABILITIES,
+            conversions=provider,
         )
 
     demo = DemoProvider()
@@ -52,4 +55,5 @@ def build_providers(settings: Settings) -> Providers:
         link=demo,
         source=demo.name,
         capabilities=DEMO_CAPABILITIES,
+        conversions=None,
     )

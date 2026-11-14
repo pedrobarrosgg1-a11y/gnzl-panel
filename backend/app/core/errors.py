@@ -51,6 +51,13 @@ class ProviderError(AppError):
     status_code = 502
 
 
+class ProviderNotSupported(ProviderError):
+    """Operação válida que o provedor ativo não sabe executar."""
+
+    code = "provider_not_supported"
+    status_code = 409
+
+
 class ProviderAuthError(ProviderError):
     code = "provider_auth_error"
 

@@ -1,7 +1,8 @@
 # gnzl achados
 
 Painel local para gerenciamento de atividades de afiliado da Shopee Brasil:
-busca de produtos, geração de links em lote com Sub IDs e histórico.
+busca de produtos, geração de links em lote com Sub IDs, histórico e
+sincronização de conversões.
 
 - **Backend:** Python + FastAPI + SQLite (SQLAlchemy 2)
 - **Frontend:** React 19 + TypeScript + Vite
@@ -31,10 +32,11 @@ provedor `shopee` estiver habilitado.
 | 11 — Revisão de fechamento (config, design, código, docs) | concluída |
 | 12 — Fechamento final da fase 1 | concluída |
 
-O provedor oficial ainda não está implementado. Mesmo com as credenciais da
-Shopee preenchidas no `.env`, a aplicação continua em **modo demo**
-(`GNZL_PROVIDER=demo`), com dados fictícios identificados como tal. O provedor
-oficial fica para uma etapa futura, após a liberação da Open API.
+O provedor oficial está implementado (`GNZL_PROVIDER=shopee`): busca de
+produtos, geração de link curto e sincronização de conversões dos últimos 90
+dias. O padrão continua sendo **modo demo** (`GNZL_PROVIDER=demo`), com dados
+fictícios identificados como tal. A visão do provedor está em
+[`docs/architecture/shopee-provider.md`](docs/architecture/shopee-provider.md).
 
 A visão consolidada da fase 1 está em
 [`docs/architecture/phase-1.md`](docs/architecture/phase-1.md).
@@ -49,6 +51,8 @@ A visão consolidada da fase 1 está em
 | 16 — Tela de dashboard com gráfico e rankings | pendente |
 | 17 — Metas | pendente |
 | 18 — Testes E2E e fechamento da fase 2 | pendente |
+| 19a — Provedor oficial da Shopee: busca e links | concluída |
+| 19b — Sincronização de conversões pela Open API | concluída |
 
 O escopo e os critérios da fase 2 estão em
 [`docs/architecture/phase-2.md`](docs/architecture/phase-2.md). A importação

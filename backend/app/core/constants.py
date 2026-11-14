@@ -17,3 +17,8 @@ MAX_BATCH_ITEMS = 200
 # Importação CSV: o arquivo é lido inteiro em memória. O teto evita que um
 # upload acidental derrube o processo local.
 MAX_IMPORT_BYTES = 10 * 1024 * 1024
+
+# A Open API da Shopee só devolve conversões dos últimos 90 dias. O limite é
+# aplicado no provedor e repetido no endpoint para a interface não oferecer uma
+# janela que a fonte recusaria.
+MAX_CONVERSION_WINDOW_DAYS = 90

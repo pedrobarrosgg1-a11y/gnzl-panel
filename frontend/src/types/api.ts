@@ -10,6 +10,8 @@ export interface SystemCapabilities {
   category_filter: boolean;
   price_filter: boolean;
   commission_filter: boolean;
+  conversion_sync: boolean;
+  conversion_window_days: number;
   sorts: SortOption[];
 }
 

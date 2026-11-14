@@ -29,6 +29,8 @@ def test_config_reports_demo_mode(client: TestClient) -> None:
             "category_filter": True,
             "price_filter": True,
             "commission_filter": True,
+            "conversion_sync": False,
+            "conversion_window_days": 90,
             "sorts": [
                 "relevance",
                 "commission_desc",
@@ -58,6 +60,8 @@ def test_config_reports_shopee_provider_without_leaking_credentials() -> None:
     assert body["capabilities"]["category_filter"] is False
     assert body["capabilities"]["price_filter"] is False
     assert body["capabilities"]["commission_filter"] is False
+    assert body["capabilities"]["conversion_sync"] is True
+    assert body["capabilities"]["conversion_window_days"] == 90
     assert "rating_desc" not in body["capabilities"]["sorts"]
     assert "app-id-secreto" not in response.text
     assert "segredo" not in response.text

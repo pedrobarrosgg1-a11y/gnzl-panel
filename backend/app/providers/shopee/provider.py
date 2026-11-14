@@ -2,16 +2,29 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
+import unicodedata
+from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
-from app.core.constants import MAX_PAGE_SIZE, PRODUCT_TITLE_MAX_LENGTH
+from app.core.constants import (
+    MAX_CONVERSION_WINDOW_DAYS,
+    MAX_PAGE_SIZE,
+    PRODUCT_TITLE_MAX_LENGTH,
+    SUB_ID_MAX_LENGTH,
+)
 from app.core.errors import (
     ProviderInvalidResponse,
     ProviderUnavailable,
     ValidationError,
 )
+from app.core.time import utcnow
 from app.providers.base import (
     SOURCE_SHOPEE,
+    ConversionQuery,
+    ConversionRecord,
     GeneratedLink,
     ProductPage,
     ProductQuery,
@@ -20,6 +33,11 @@ from app.providers.base import (
 from app.providers.shopee.client import ShopeeClient
 
 MAX_SUB_IDS = 5
+
+# A API limita a página a 500 e devolve um cursor com validade curta. O teto de
+# páginas evita um laço infinito se a fonte repetir o mesmo cursor.
+CONVERSION_PAGE_LIMIT = 500
+MAX_CONVERSION_PAGES = 100
 
 # Valores documentados em affiliate.shopee.com.br/open_api.
 LIST_TYPE_MAIOR_COMISSAO = 1
@@ -75,15 +93,79 @@ mutation ($input: ShortLinkInput!) {
 }
 """
 
+# ``purchaseTimeStart``/``purchaseTimeEnd`` são Int64. A API recusa variáveis
+# desse tipo com "wrong type", por isso os tempos entram inline; ``Int`` e
+# ``String`` funcionam como variáveis e permanecem assim.
+_CONVERSION_QUERY = """
+query ($limit: Int, $scrollId: String) {{
+  conversionReport(
+    purchaseTimeStart: {start}
+    purchaseTimeEnd: {end}
+    conversionStatus: ALL
+    limit: $limit
+    scrollId: $scrollId
+  ) {{
+    nodes {{
+      purchaseTime
+      conversionId
+      conversionStatus
+      utmContent
+      device
+      orders {{
+        orderId
+        orderStatus
+        items {{
+          shopId
+          completeTime
+          modelId
+          itemId
+          itemName
+          itemPrice
+          displayItemStatus
+          actualAmount
+          refundAmount
+          qty
+          imageUrl
+          itemCommission
+          itemTotalCommission
+          channelType
+        }}
+      }}
+    }}
+    pageInfo {{
+      hasNextPage
+      scrollId
+    }}
+  }}
+}}
+"""
+
+_EXACT_STATUS_GROUPS = {
+    "all": "unknown",
+    "unpaid": "pending",
+    "pending": "pending",
+    "completed": "approved",
+    "cancelled": "cancelled",
+    "canceled": "cancelled",
+    "refunded": "refunded",
+}
+
 
 class ShopeeProvider:
     """Implementa ProductProvider e LinkProvider sobre a API oficial."""
 
     name = SOURCE_SHOPEE
     is_demo = False
+    conversion_window_days = MAX_CONVERSION_WINDOW_DAYS
 
-    def __init__(self, client: ShopeeClient) -> None:
+    def __init__(
+        self,
+        client: ShopeeClient,
+        *,
+        now: Callable[[], datetime] = utcnow,
+    ) -> None:
         self._client = client
+        self._now = now
 
     def search_products(self, query: ProductQuery) -> ProductPage:
         self._validate_query(query)
@@ -155,6 +237,215 @@ class ShopeeProvider:
             original_url=origin_url,
             affiliate_url=short_link.strip(),
             source=SOURCE_SHOPEE,
+        )
+
+    def fetch_conversions(self, query: ConversionQuery) -> list[ConversionRecord]:
+        """Lê o Conversion Report inteiro da janela, página a página."""
+        self._validate_conversion_query(query)
+        start = _unix_seconds(query.start)
+        end = _unix_seconds(query.end)
+        query_text = _CONVERSION_QUERY.format(start=start, end=end)
+
+        records: list[ConversionRecord] = []
+        scroll_id = ""
+
+        for _ in range(MAX_CONVERSION_PAGES):
+            data = self._client.execute(
+                query_text,
+                {"limit": CONVERSION_PAGE_LIMIT, "scrollId": scroll_id},
+            )
+            page = _conversion_page(data)
+
+            nodes = page.get("nodes") or []
+            if not isinstance(nodes, list):
+                raise ProviderInvalidResponse(
+                    "A Shopee devolveu a lista de conversões em formato inesperado."
+                )
+            for node in nodes:
+                records.extend(self._map_conversion_node(node))
+
+            page_info = page.get("pageInfo") or {}
+            if not isinstance(page_info, dict):
+                raise ProviderInvalidResponse(
+                    "A Shopee devolveu a paginação de conversões em formato inesperado."
+                )
+            if not page_info.get("hasNextPage"):
+                return records
+
+            next_scroll_id = page_info.get("scrollId")
+            if not isinstance(next_scroll_id, str) or not next_scroll_id:
+                raise ProviderInvalidResponse(
+                    "A Shopee não retornou o cursor da próxima página de conversões."
+                )
+            scroll_id = next_scroll_id
+
+        raise ProviderInvalidResponse(
+            "A Shopee devolveu páginas demais para uma única sincronização."
+        )
+
+    def _validate_conversion_query(self, query: ConversionQuery) -> None:
+        start = _as_naive_utc(query.start)
+        end = _as_naive_utc(query.end)
+        if start >= end:
+            raise ValidationError("O início da janela precisa ser anterior ao fim.")
+
+        now = _as_naive_utc(self._now())
+        if end > now + timedelta(minutes=5):
+            raise ValidationError("O fim da janela não pode estar no futuro.")
+        if start < now - timedelta(
+            days=MAX_CONVERSION_WINDOW_DAYS, minutes=5
+        ):
+            raise ValidationError(
+                "A Shopee permite sincronizar apenas os últimos 90 dias."
+            )
+
+    @staticmethod
+    def _map_conversion_node(node: object) -> list[ConversionRecord]:
+        if not isinstance(node, dict):
+            raise ProviderInvalidResponse(
+                "A Shopee devolveu uma conversão em formato inesperado."
+            )
+
+        purchase_time = _timestamp(node.get("purchaseTime"))
+        if purchase_time is None:
+            raise ProviderInvalidResponse(
+                "A Shopee devolveu uma conversão sem data de compra."
+            )
+
+        conversion_id = _integer(node.get("conversionId"))
+        conversion_status = _optional_str(node.get("conversionStatus"))
+        utm_content = _optional_str(node.get("utmContent"))
+        device = _optional_str(node.get("device"))
+        sub_ids = _sub_ids(utm_content)
+        # "ALL" é valor de filtro da API, não um dispositivo real.
+        channel = None if (device or "").casefold() == "all" else device
+
+        orders = node.get("orders") or []
+        if not isinstance(orders, list):
+            raise ProviderInvalidResponse(
+                "A Shopee devolveu os pedidos da conversão em formato inesperado."
+            )
+
+        records: list[ConversionRecord] = []
+        for order in orders:
+            if not isinstance(order, dict):
+                raise ProviderInvalidResponse(
+                    "A Shopee devolveu um pedido em formato inesperado."
+                )
+            order_id = _optional_str(order.get("orderId"))
+            if not order_id:
+                raise ProviderInvalidResponse(
+                    "A Shopee devolveu um pedido sem identificador."
+                )
+            if len(order_id) > 100:
+                raise ProviderInvalidResponse(
+                    "A Shopee devolveu um pedido com identificador longo demais."
+                )
+            order_status = _optional_str(order.get("orderStatus"))
+
+            items = order.get("items") or []
+            if not isinstance(items, list):
+                raise ProviderInvalidResponse(
+                    "A Shopee devolveu os itens do pedido em formato inesperado."
+                )
+            for item in items:
+                records.append(
+                    ShopeeProvider._map_conversion_item(
+                        item,
+                        purchase_time=purchase_time,
+                        order_id=order_id,
+                        order_status=order_status,
+                        conversion_id=conversion_id,
+                        conversion_status=conversion_status,
+                        utm_content=utm_content,
+                        device=device,
+                        channel=channel,
+                        sub_ids=sub_ids,
+                    )
+                )
+        return records
+
+    @staticmethod
+    def _map_conversion_item(
+        item: object,
+        *,
+        purchase_time: datetime,
+        order_id: str,
+        order_status: str | None,
+        conversion_id: int | None,
+        conversion_status: str | None,
+        utm_content: str | None,
+        device: str | None,
+        channel: str | None,
+        sub_ids: tuple[str | None, ...],
+    ) -> ConversionRecord:
+        if not isinstance(item, dict):
+            raise ProviderInvalidResponse(
+                "A Shopee devolveu um item do pedido em formato inesperado."
+            )
+
+        item_id = _integer(item.get("itemId"))
+        if item_id is None:
+            raise ProviderInvalidResponse(
+                "A Shopee devolveu um item sem identificador."
+            )
+        model_id = _integer(item.get("modelId")) or 0
+        quantity = _integer(item.get("qty"))
+        if quantity is None:
+            quantity = 0
+        if quantity < 0:
+            raise ProviderInvalidResponse(
+                "A Shopee devolveu uma quantidade inválida."
+            )
+
+        sales = _decimal(item.get("actualAmount"))
+        if sales is None:
+            price = _decimal(item.get("itemPrice"))
+            sales = (price or Decimal(0)) * quantity
+        commission = _decimal(item.get("itemTotalCommission"))
+        if commission is None:
+            commission = _decimal(item.get("itemCommission"))
+        if commission is None:
+            commission = Decimal(0)
+        if sales < 0 or commission < 0:
+            raise ProviderInvalidResponse(
+                "A Shopee devolveu valores de venda ou comissão inválidos."
+            )
+
+        raw_status = (
+            _optional_str(item.get("displayItemStatus"))
+            or order_status
+            or conversion_status
+            or "unknown"
+        )
+
+        return ConversionRecord(
+            external_order_id=order_id,
+            external_item_id=item_id,
+            shop_id=_integer(item.get("shopId")),
+            title=_truncate(_optional_str(item.get("itemName")), 300),
+            image_url=_optional_str(item.get("imageUrl")),
+            status=raw_status[:60],
+            status_group=_status_group(raw_status),
+            ordered_at=purchase_time,
+            completed_at=_timestamp(item.get("completeTime")),
+            quantity=quantity,
+            sales_cents=_to_cents(sales),
+            commission_cents=_to_cents(commission),
+            sub_ids=sub_ids,
+            channel=_truncate(channel, 80),
+            dedup_key=_order_dedup_key(order_id, item_id, model_id),
+            source=SOURCE_SHOPEE,
+            raw={
+                "conversion_id": conversion_id,
+                "conversion_status": conversion_status,
+                "purchase_time": purchase_time.isoformat(),
+                "utm_content": utm_content,
+                "device": device,
+                "order_id": order_id,
+                "order_status": order_status,
+                "item": item,
+            },
         )
 
     def list_categories(self) -> list[str]:
@@ -279,3 +570,119 @@ def _to_x100(value: Decimal | None) -> int | None:
     if value is None:
         return None
     return int((value * 100).to_integral_value(rounding=ROUND_HALF_UP))
+
+
+def _conversion_page(data: dict[str, object]) -> dict[str, object]:
+    page = data.get("conversionReport")
+    if not isinstance(page, dict):
+        raise ProviderInvalidResponse(
+            "A Shopee devolveu o relatório de conversões em formato inesperado."
+        )
+    return page
+
+
+def _timestamp(value: object) -> datetime | None:
+    """Converte segundos Unix em UTC sem timezone; zero significa ausência."""
+    if value is None or value == "":
+        return None
+    try:
+        seconds = int(str(value))
+    except (TypeError, ValueError) as exc:
+        raise ProviderInvalidResponse(
+            "A Shopee devolveu uma data inválida."
+        ) from exc
+    if seconds <= 0:
+        return None
+    try:
+        return datetime.fromtimestamp(seconds, tz=timezone.utc).replace(tzinfo=None)
+    except (OverflowError, OSError, ValueError) as exc:
+        raise ProviderInvalidResponse(
+            "A Shopee devolveu uma data fora do intervalo esperado."
+        ) from exc
+
+
+def _as_naive_utc(value: datetime) -> datetime:
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
+def _unix_seconds(value: datetime) -> int:
+    aware = _as_naive_utc(value).replace(tzinfo=timezone.utc)
+    return int(aware.timestamp())
+
+
+def _order_dedup_key(order_id: str, item_id: int, model_id: int) -> str:
+    digest = hashlib.sha256(
+        f"{order_id}|{item_id}|{model_id}".encode("utf-8")
+    ).hexdigest()
+    return f"order:{digest}"
+
+
+def _truncate(value: str | None, limit: int) -> str | None:
+    return value[:limit] if value is not None else None
+
+
+def _status_group(value: str | None) -> str:
+    """Classifica o status bruto sem presumir um vocabulário fechado."""
+    token = (value or "").strip().casefold()
+    if not token:
+        return "unknown"
+
+    exact = _EXACT_STATUS_GROUPS.get(token)
+    if exact is not None:
+        return exact
+    if "cancel" in token:
+        return "cancelled"
+    if "refund" in token or "return" in token or "devolu" in token:
+        return "refunded"
+    if (
+        "unpaid" in token
+        or "pending" in token
+        or "process" in token
+        or "ship" in token
+        or "transit" in token
+        or "await" in token
+    ):
+        return "pending"
+    if (
+        "complete" in token
+        or "approv" in token
+        or "paid" in token
+        or "deliver" in token
+        or "conclu" in token
+    ):
+        return "approved"
+    return "unknown"
+
+
+def _sub_ids(utm_content: str | None) -> tuple[str | None, ...]:
+    """Separa o utmContent em até cinco Sub IDs canônicos.
+
+    A API não expõe campos de Sub ID no nó de conversão; o valor chega em
+    ``utmContent``. O separador real de múltiplos valores não está documentado,
+    então vírgula, ponto e vírgula, barra vertical e espaço são aceitos. O valor
+    bruto permanece em ``raw`` para auditoria.
+    """
+    if not utm_content:
+        return (None,) * MAX_SUB_IDS
+
+    parts = re.split(r"[,;|\s]+", utm_content.strip())
+    tokens = [
+        token
+        for token in (_canonical_sub_id(part) for part in parts)
+        if token is not None
+    ][:MAX_SUB_IDS]
+    return tuple(tokens + [None] * (MAX_SUB_IDS - len(tokens)))
+
+
+def _canonical_sub_id(value: str) -> str | None:
+    without_accents = (
+        unicodedata.normalize("NFKD", value)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+        .casefold()
+    )
+    cleaned = re.sub(r"[^a-z0-9-]+", "-", without_accents)
+    collapsed = re.sub(r"-{2,}", "-", cleaned).strip("-")
+    return collapsed[:SUB_ID_MAX_LENGTH].strip("-") or None

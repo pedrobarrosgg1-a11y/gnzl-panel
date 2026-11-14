@@ -1,7 +1,9 @@
 """Testes do provedor oficial da Shopee sem tocar na rede real."""
 
 import hashlib
+import json
 from collections.abc import Callable
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -14,11 +16,25 @@ from app.core.errors import (
     ProviderUnavailable,
     ValidationError,
 )
-from app.providers.base import ProductQuery
+from app.providers.base import ConversionQuery, ProductQuery
 from app.providers.shopee import ShopeeClient, ShopeeProvider
 
 APP_ID = "app-id-teste"
 SECRET = "segredo-super-secreto"
+
+FIXED_NOW = datetime(2026, 11, 12, 12, 0)
+PURCHASE_TIME = datetime(2026, 11, 1, 10, 0)
+COMPLETE_TIME = datetime(2026, 11, 2, 10, 0)
+
+
+def _unix(value: datetime) -> int:
+    return int(value.replace(tzinfo=timezone.utc).timestamp())
+
+
+def conversion_query(days: int = 30) -> ConversionQuery:
+    return ConversionQuery(
+        start=FIXED_NOW - timedelta(days=days), end=FIXED_NOW
+    )
 
 
 def make_client(handler: Callable[[httpx.Request], httpx.Response], **kwargs: Any) -> ShopeeClient:
@@ -398,3 +414,368 @@ def test_categories_are_empty_because_the_api_has_no_catalog_of_names() -> None:
     provider = ShopeeProvider(make_client(lambda request: httpx.Response(200, json={})))
 
     assert provider.list_categories() == []
+
+
+# --- Conversion Report -------------------------------------------------------
+
+
+def conversion_item(**overrides: Any) -> dict[str, Any]:
+    item = {
+        "shopId": 573579437,
+        "completeTime": _unix(COMPLETE_TIME),
+        "modelId": 0,
+        "itemId": 14888686365,
+        "itemName": "Organizador de fones",
+        "itemPrice": "19.90",
+        "displayItemStatus": "COMPLETED",
+        "actualAmount": "39.80",
+        "refundAmount": "0.00",
+        "qty": 2,
+        "imageUrl": "https://down-br.img.susercontent.com/file/abc",
+        "itemCommission": "2.00",
+        "itemTotalCommission": "4.00",
+        "channelType": "APP",
+    }
+    item.update(overrides)
+    return item
+
+
+def conversion_node(**overrides: Any) -> dict[str, Any]:
+    node = {
+        "purchaseTime": _unix(PURCHASE_TIME),
+        "conversionId": 987654,
+        "conversionStatus": "COMPLETED",
+        "utmContent": "campanha",
+        "device": "APP",
+        "orders": [
+            {
+                "orderId": "260101ABCDEF",
+                "orderStatus": "COMPLETED",
+                "items": [conversion_item()],
+            }
+        ],
+    }
+    node.update(overrides)
+    return node
+
+
+def conversion_response(
+    nodes: list[dict[str, Any]],
+    *,
+    has_next: bool = False,
+    scroll_id: str = "",
+) -> dict[str, Any]:
+    return {
+        "data": {
+            "conversionReport": {
+                "nodes": nodes,
+                "pageInfo": {
+                    "hasNextPage": has_next,
+                    "scrollId": scroll_id,
+                },
+            }
+        }
+    }
+
+
+def conversion_provider(
+    handler: Callable[[httpx.Request], httpx.Response],
+) -> ShopeeProvider:
+    return ShopeeProvider(make_client(handler), now=lambda: FIXED_NOW)
+
+
+def test_fetch_conversions_maps_the_order_item_to_a_local_record() -> None:
+    provider = conversion_provider(
+        lambda request: httpx.Response(
+            200, json=conversion_response([conversion_node()])
+        )
+    )
+
+    records = provider.fetch_conversions(conversion_query())
+
+    assert len(records) == 1
+    record = records[0]
+    assert record.source == "shopee"
+    assert record.external_order_id == "260101ABCDEF"
+    assert record.external_item_id == 14888686365
+    assert record.shop_id == 573579437
+    assert record.title == "Organizador de fones"
+    assert record.image_url == "https://down-br.img.susercontent.com/file/abc"
+    assert record.status == "COMPLETED"
+    assert record.status_group == "approved"
+    assert record.ordered_at == PURCHASE_TIME
+    assert record.completed_at == COMPLETE_TIME
+    assert record.quantity == 2
+    assert record.sales_cents == 3980
+    assert record.commission_cents == 400
+    assert record.sub_ids == ("campanha", None, None, None, None)
+    assert record.channel == "APP"
+    assert record.dedup_key.startswith("order:")
+    assert record.raw["conversion_id"] == 987654
+    assert record.raw["item"]["itemId"] == 14888686365
+
+
+def test_fetch_conversions_sends_timestamps_inline_and_only_simple_variables() -> None:
+    payloads: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(json.loads(request.content))
+        return httpx.Response(200, json=conversion_response([]))
+
+    provider = conversion_provider(handler)
+    provider.fetch_conversions(conversion_query(days=30))
+
+    query = payloads[0]["query"]
+    assert f"purchaseTimeStart: {_unix(FIXED_NOW - timedelta(days=30))}" in query
+    assert f"purchaseTimeEnd: {_unix(FIXED_NOW)}" in query
+    assert "conversionStatus: ALL" in query
+    # Só Int e String funcionam como variáveis neste endpoint.
+    assert "purchaseTimeStart: $" not in query
+    assert payloads[0]["variables"] == {"limit": 500, "scrollId": ""}
+
+
+def test_fetch_conversions_follows_the_scroll_until_the_last_page() -> None:
+    payloads: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(json.loads(request.content))
+        if len(payloads) == 1:
+            return httpx.Response(
+                200,
+                json=conversion_response(
+                    [conversion_node()], has_next=True, scroll_id="cursor-1"
+                ),
+            )
+        return httpx.Response(
+            200,
+            json=conversion_response(
+                [conversion_node(conversionId=2, utmContent="banner")]
+            ),
+        )
+
+    records = conversion_provider(handler).fetch_conversions(conversion_query())
+
+    assert [payload["variables"]["scrollId"] for payload in payloads] == [
+        "",
+        "cursor-1",
+    ]
+    assert len(records) == 2
+    assert [record.sub_ids[0] for record in records] == ["campanha", "banner"]
+
+
+def test_fetch_conversions_returns_an_empty_list_when_there_are_no_orders() -> None:
+    provider = conversion_provider(
+        lambda request: httpx.Response(200, json=conversion_response([]))
+    )
+
+    assert provider.fetch_conversions(conversion_query()) == []
+
+
+def test_fetch_conversions_rejects_a_window_older_than_ninety_days() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("não deveria chamar a Shopee")
+
+    provider = conversion_provider(handler)
+
+    with pytest.raises(ValidationError) as error:
+        provider.fetch_conversions(conversion_query(days=91))
+
+    assert "90 dias" in error.value.message
+
+
+def test_fetch_conversions_rejects_inverted_and_future_windows() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("não deveria chamar a Shopee")
+
+    provider = conversion_provider(handler)
+
+    with pytest.raises(ValidationError):
+        provider.fetch_conversions(
+            ConversionQuery(start=FIXED_NOW, end=FIXED_NOW)
+        )
+    with pytest.raises(ValidationError):
+        provider.fetch_conversions(
+            ConversionQuery(
+                start=FIXED_NOW - timedelta(days=1),
+                end=FIXED_NOW + timedelta(days=1),
+            )
+        )
+
+
+def test_fetch_conversions_falls_back_to_item_price_and_unit_commission() -> None:
+    item = conversion_item()
+    item.pop("actualAmount")
+    item.pop("itemTotalCommission")
+    node = conversion_node()
+    node["orders"][0]["items"] = [item]
+    provider = conversion_provider(
+        lambda request: httpx.Response(200, json=conversion_response([node]))
+    )
+
+    record = provider.fetch_conversions(conversion_query())[0]
+
+    assert record.sales_cents == 3980
+    assert record.commission_cents == 200
+
+
+@pytest.mark.parametrize(
+    ("raw_status", "group"),
+    [
+        ("COMPLETED", "approved"),
+        ("APPROVED", "approved"),
+        ("PENDING", "pending"),
+        ("UNPAID", "pending"),
+        ("CANCELLED", "cancelled"),
+        ("REFUNDED", "refunded"),
+        ("IN_TRANSIT", "pending"),
+        ("DESCONHECIDO", "unknown"),
+    ],
+)
+def test_fetch_conversions_classifies_status_without_presuming_a_fixed_list(
+    raw_status: str, group: str
+) -> None:
+    item = conversion_item(displayItemStatus=raw_status)
+    node = conversion_node()
+    node["orders"][0]["items"] = [item]
+    provider = conversion_provider(
+        lambda request: httpx.Response(200, json=conversion_response([node]))
+    )
+
+    record = provider.fetch_conversions(conversion_query())[0]
+
+    assert record.status == raw_status
+    assert record.status_group == group
+
+
+def test_fetch_conversions_falls_back_to_the_order_status() -> None:
+    item = conversion_item(displayItemStatus=None)
+    node = conversion_node()
+    node["orders"][0]["orderStatus"] = "PENDING"
+    node["orders"][0]["items"] = [item]
+    provider = conversion_provider(
+        lambda request: httpx.Response(200, json=conversion_response([node]))
+    )
+
+    record = provider.fetch_conversions(conversion_query())[0]
+
+    assert record.status == "PENDING"
+    assert record.status_group == "pending"
+
+
+def test_fetch_conversions_canonicalizes_sub_ids_from_utm_content() -> None:
+    node = conversion_node(utmContent="Campanha, Banner;black-friday|extra cinco")
+    provider = conversion_provider(
+        lambda request: httpx.Response(200, json=conversion_response([node]))
+    )
+
+    record = provider.fetch_conversions(conversion_query())[0]
+
+    assert record.sub_ids == (
+        "campanha",
+        "banner",
+        "black-friday",
+        "extra",
+        "cinco",
+    )
+
+
+def test_fetch_conversions_keeps_the_device_as_channel_except_for_all() -> None:
+    app_node = conversion_node(device="APP")
+    web_node = conversion_node(device="WEB", conversionId=2)
+    alle_node = conversion_node(device="ALL", conversionId=3)
+    provider = conversion_provider(
+        lambda request: httpx.Response(
+            200, json=conversion_response([app_node, web_node, alle_node])
+        )
+    )
+
+    records = provider.fetch_conversions(conversion_query())
+
+    assert [record.channel for record in records] == ["APP", "WEB", None]
+
+
+def test_fetch_conversions_dedup_key_separates_variants_of_the_same_item() -> None:
+    first = conversion_node()
+    second = conversion_node(conversionId=2)
+    second["orders"] = [
+        {
+            "orderId": "260101ABCDEF",
+            "orderStatus": "COMPLETED",
+            "items": [conversion_item(modelId=777)],
+        }
+    ]
+    provider = conversion_provider(
+        lambda request: httpx.Response(200, json=conversion_response([first, second]))
+    )
+
+    records = provider.fetch_conversions(conversion_query())
+
+    assert records[0].dedup_key != records[1].dedup_key
+
+
+def test_fetch_conversions_requires_a_purchase_time() -> None:
+    node = conversion_node(purchaseTime=0)
+    provider = conversion_provider(
+        lambda request: httpx.Response(200, json=conversion_response([node]))
+    )
+
+    with pytest.raises(ProviderInvalidResponse):
+        provider.fetch_conversions(conversion_query())
+
+
+def test_fetch_conversions_requires_an_item_identifier() -> None:
+    node = conversion_node()
+    node["orders"][0]["items"] = [conversion_item(itemId=None)]
+    provider = conversion_provider(
+        lambda request: httpx.Response(200, json=conversion_response([node]))
+    )
+
+    with pytest.raises(ProviderInvalidResponse):
+        provider.fetch_conversions(conversion_query())
+
+
+def test_fetch_conversions_requires_the_next_cursor_when_has_next_page() -> None:
+    provider = conversion_provider(
+        lambda request: httpx.Response(
+            200, json=conversion_response([conversion_node()], has_next=True)
+        )
+    )
+
+    with pytest.raises(ProviderInvalidResponse) as error:
+        provider.fetch_conversions(conversion_query())
+
+    assert "cursor" in error.value.message
+
+
+def test_fetch_conversions_stops_after_the_page_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.providers.shopee import provider as provider_module
+
+    monkeypatch.setattr(provider_module, "MAX_CONVERSION_PAGES", 2)
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(
+            200,
+            json=conversion_response(
+                [conversion_node()], has_next=True, scroll_id=f"cursor-{calls}"
+            ),
+        )
+
+    with pytest.raises(ProviderInvalidResponse) as error:
+        conversion_provider(handler).fetch_conversions(conversion_query())
+
+    assert calls == 2
+    assert "páginas demais" in error.value.message
+
+
+def test_fetch_conversions_reports_a_broken_report_envelope() -> None:
+    provider = conversion_provider(
+        lambda request: httpx.Response(200, json={"data": {"conversionReport": []}})
+    )
+
+    with pytest.raises(ProviderInvalidResponse):
+        provider.fetch_conversions(conversion_query())

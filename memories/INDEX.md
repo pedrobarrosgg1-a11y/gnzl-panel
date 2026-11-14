@@ -15,6 +15,7 @@ testes nem `docs/architecture/`.
 - [Etapa 13 — modelagem de conversão, importações e metas](Results/etapa-13-modelagem-fase-2.md)
 - [Etapa 14 — importação CSV](Results/etapa-14-importacao-csv.md)
 - [Etapa 19a — provedor oficial da Shopee](Results/etapa-19a-provedor-shopee.md)
+- [Etapa 19b — sincronização de conversões](Results/etapa-19b-sincronizacao-conversoes.md)
 
 ## Gotchas
 

@@ -14,6 +14,8 @@ fictício sem identificação.
 | 16 | Tela de dashboard com métricas, gráfico e rankings | pendente |
 | 17 | Metas: cadastro, acompanhamento e integração com o dashboard | pendente |
 | 18 | Testes E2E e fechamento da fase 2 | pendente |
+| 19a | Provedor oficial da Shopee: busca de produtos e links | concluída |
+| 19b | Sincronização de conversões pela Open API | concluída |
 
 A ordem pode ser ajustada, mas a importação CSV não deve ser implementada antes
 de o formato real do relatório ser confirmado com um arquivo de exemplo.
@@ -85,6 +87,22 @@ O importador usa um contrato canônico e próprio, documentado em
 O mapeamento das colunas reais da Shopee continua pendente de um arquivo de
 exemplo. Nenhum nome de coluna oficial foi inventado; o adaptador futuro
 converterá o relatório oficial para o contrato canônico.
+
+## Sincronização de conversões
+
+Com `GNZL_PROVIDER=shopee`, `POST /api/conversions/sync?days=30` consulta o
+Conversion Report da Open API e grava em `orders` com `data_source="shopee"`.
+Não é CSV: o formato real vem do schema GraphQL, e o endpoint usa o mesmo
+`import_logs`/`imported_rows` para auditoria.
+
+- janela de 1 a 90 dias (limite da API);
+- paginação por `scrollId`;
+- atualização de status e comissão de pedidos já existentes;
+- deduplicação por pedido + item + variante;
+- em modo demo responde `409 provider_not_supported`.
+
+Detalhes de query, mapeamento e limitações estão em
+[`shopee-provider.md`](shopee-provider.md).
 
 ## Dashboard
 

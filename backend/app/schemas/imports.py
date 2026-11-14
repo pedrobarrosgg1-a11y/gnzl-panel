@@ -1,6 +1,7 @@
 """Schemas das importações CSV."""
 
 import json
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -15,7 +16,7 @@ class ImportedRowOut(BaseModel):
     message: str | None
     order_id: int | None
     click_id: int | None
-    raw_data: dict[str, str] | None
+    raw_data: dict[str, Any] | None
 
     @classmethod
     def from_model(cls, row: ImportedRow) -> "ImportedRowOut":
@@ -80,7 +81,7 @@ class ImportDetailOut(ImportOut):
     rows_has_next: bool
 
 
-def _parse_raw(raw_data: str | None) -> dict[str, str] | None:
+def _parse_raw(raw_data: str | None) -> dict[str, Any] | None:
     if not raw_data:
         return None
     try:

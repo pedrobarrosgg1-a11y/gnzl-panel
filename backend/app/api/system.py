@@ -35,6 +35,8 @@ def config(
             category_filter=capabilities.category_filter,
             price_filter=capabilities.price_filter,
             commission_filter=capabilities.commission_filter,
+            conversion_sync=capabilities.conversion_sync,
+            conversion_window_days=capabilities.conversion_window_days,
             sorts=list(capabilities.sorts),
         ),
     )

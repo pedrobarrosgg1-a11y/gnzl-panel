@@ -31,4 +31,5 @@ SHOPEE_CAPABILITIES = ProviderCapabilities(
         "price_asc",
         "price_desc",
     ),
+    conversion_sync=True,
 )

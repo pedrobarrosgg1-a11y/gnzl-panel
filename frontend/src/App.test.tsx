@@ -19,6 +19,8 @@ const config: SystemConfig = {
     category_filter: true,
     price_filter: true,
     commission_filter: true,
+    conversion_sync: false,
+    conversion_window_days: 90,
     sorts: [
       "relevance",
       "commission_desc",
@@ -178,6 +180,8 @@ describe("App", () => {
         category_filter: false,
         price_filter: false,
         commission_filter: false,
+        conversion_sync: true,
+        conversion_window_days: 90,
         sorts: [
           "relevance",
           "commission_desc",

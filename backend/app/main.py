@@ -8,6 +8,7 @@ from sqlalchemy import Engine
 
 from app import __version__
 from app.api import (
+    conversions,
     imports,
     link_batches,
     links,
@@ -90,6 +91,7 @@ def create_app(
     app.include_router(link_batches.router, prefix="/api")
     app.include_router(links.router, prefix="/api")
     app.include_router(imports.router, prefix="/api")
+    app.include_router(conversions.router, prefix="/api")
     return app
 
 

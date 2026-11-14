@@ -5,7 +5,10 @@ altera regra de negócio nem a API HTTP.
 """
 
 from dataclasses import dataclass, field
-from typing import Literal, Protocol, runtime_checkable
+from datetime import datetime
+from typing import Any, Literal, Protocol, runtime_checkable
+
+from app.core.constants import MAX_CONVERSION_WINDOW_DAYS
 
 SortOption = Literal[
     "relevance",
@@ -48,6 +51,8 @@ class ProviderCapabilities:
         "price_asc",
         "price_desc",
     )
+    conversion_sync: bool = False
+    conversion_window_days: int = MAX_CONVERSION_WINDOW_DAYS
 
 
 @dataclass(frozen=True)
@@ -86,6 +91,42 @@ class GeneratedLink:
     source: str
 
 
+@dataclass(frozen=True)
+class ConversionQuery:
+    """Janela de compra consultada na fonte, em UTC sem timezone."""
+
+    start: datetime
+    end: datetime
+
+
+@dataclass(frozen=True)
+class ConversionRecord:
+    """Uma linha de item do relatório de conversões, já normalizada.
+
+    ``dedup_key`` é estável dentro da origem e identifica pedido + item +
+    variante. ``raw`` guarda a resposta original para auditoria; nunca é usado
+    nas regras de negócio.
+    """
+
+    external_order_id: str
+    external_item_id: int | None
+    shop_id: int | None
+    title: str | None
+    image_url: str | None
+    status: str
+    status_group: str
+    ordered_at: datetime
+    completed_at: datetime | None
+    quantity: int
+    sales_cents: int
+    commission_cents: int
+    sub_ids: tuple[str | None, ...]
+    channel: str | None
+    dedup_key: str
+    source: str = SOURCE_DEMO
+    raw: dict[str, Any] = field(default_factory=dict)
+
+
 @runtime_checkable
 class ProductProvider(Protocol):
     name: str
@@ -104,3 +145,16 @@ class LinkProvider(Protocol):
     is_demo: bool
 
     def create_link(self, origin_url: str, sub_ids: tuple[str, ...]) -> GeneratedLink: ...
+
+
+@runtime_checkable
+class ConversionProvider(Protocol):
+    name: str
+    is_demo: bool
+    conversion_window_days: int
+
+    def fetch_conversions(
+        self, query: ConversionQuery
+    ) -> list[ConversionRecord]:
+        """Devolve todas as linhas da janela, seguindo a paginação da fonte."""
+        ...
