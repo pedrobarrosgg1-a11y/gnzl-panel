@@ -47,7 +47,7 @@ A visão consolidada da fase 1 está em
 |---|---|
 | 13 — Modelagem de conversão, importações e metas | concluída |
 | 14 — Importação CSV | concluída |
-| 15 — Agregações e endpoints do dashboard | pendente |
+| 15 — Agregações e endpoints do dashboard | concluída |
 | 16 — Tela de dashboard com gráfico e rankings | pendente |
 | 17 — Metas | pendente |
 | 18 — Testes E2E e fechamento da fase 2 | pendente |
@@ -55,8 +55,11 @@ A visão consolidada da fase 1 está em
 | 19b — Sincronização de conversões pela Open API | concluída |
 
 O escopo e os critérios da fase 2 estão em
-[`docs/architecture/phase-2.md`](docs/architecture/phase-2.md). A importação
-CSV depende da confirmação do formato real do relatório da Shopee.
+[`docs/architecture/phase-2.md`](docs/architecture/phase-2.md). O endpoint do
+dashboard (`GET /api/dashboard`) já existe e está documentado em
+[`docs/architecture/dashboard.md`](docs/architecture/dashboard.md); a tela
+correspondente é a etapa 16. A importação CSV depende da confirmação do formato
+real do relatório da Shopee.
 
 ## Requisitos
 

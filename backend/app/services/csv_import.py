@@ -11,7 +11,8 @@ Arquivo de pedidos (``orders``)::
     image_url
 
 Obrigatórias: ``order_id``, ``item_id``, ``status`` e ``ordered_at``.
-``status_group`` ausente vira ``unknown``.
+``status_group`` ausente é derivado de ``status`` pelas mesmas regras do
+provedor oficial; quando presente, precisa ser um grupo válido.
 
 Arquivo de cliques (``clicks``)::
 
@@ -34,6 +35,16 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.core.constants import MAX_IMPORT_BYTES
+from app.core.conversion_rules import (
+    DEFAULT_QUANTITY,
+    MAX_ORDER_ID_LENGTH,
+    MAX_STATUS_LENGTH,
+    MAX_TITLE_LENGTH,
+    STATUS_GROUPS,
+    normalize_channel,
+    status_group_from_raw,
+    truncate_text,
+)
 from app.core.errors import ValidationError
 from app.core.time import utcnow
 from app.models.conversion import Click, Order
@@ -74,8 +85,6 @@ CLICK_OPTIONAL = (
     "sub_id_5",
 )
 CLICK_COLUMNS = CLICK_REQUIRED + CLICK_OPTIONAL
-
-STATUS_GROUPS = ("pending", "approved", "cancelled", "refunded", "unknown")
 
 _BRAZILIAN_DATETIME_FORMATS = (
     "%d/%m/%Y %H:%M:%S",
@@ -451,10 +460,14 @@ def _delimiter(text: str) -> str:
 
 def _build_order(row: ParsedRow) -> OrderPayload:
     raw = row.values
-    external_order_id = _required_text(raw, "order_id", max_length=100)
+    external_order_id = _required_text(
+        raw, "order_id", max_length=MAX_ORDER_ID_LENGTH
+    )
     external_item_id = _required_integer(raw, "item_id")
     ordered_at = _required_datetime(raw, "ordered_at")
-    status = _required_text(raw, "status", max_length=60)
+    status = (
+        truncate_text(_required_text(raw, "status"), MAX_STATUS_LENGTH) or "unknown"
+    )
 
     return OrderPayload(
         row_number=row.row_number,
@@ -463,15 +476,19 @@ def _build_order(row: ParsedRow) -> OrderPayload:
         external_item_id=external_item_id,
         shop_id=_optional_integer(raw, "shop_id"),
         status=status,
-        status_group=_status_group(raw.get("status_group")),
+        status_group=_status_group(raw.get("status_group"), status),
         ordered_at=ordered_at,
         completed_at=_optional_datetime(raw, "completed_at"),
-        quantity=_integer_value(raw, "quantity", default=1, minimum=0),
-        sales_cents=_integer_value(raw, "sales_cents", default=0),
-        commission_cents=_integer_value(raw, "commission_cents", default=0),
+        quantity=_integer_value(
+            raw, "quantity", default=DEFAULT_QUANTITY, minimum=0
+        ),
+        sales_cents=_integer_value(raw, "sales_cents", default=0, minimum=0),
+        commission_cents=_integer_value(
+            raw, "commission_cents", default=0, minimum=0
+        ),
         sub_ids=_sub_ids(raw),
-        channel=_optional_text(raw, "channel", max_length=80),
-        title=_optional_text(raw, "title", max_length=300),
+        channel=normalize_channel(raw.get("channel")),
+        title=truncate_text(_optional_text(raw, "title"), MAX_TITLE_LENGTH),
         image_url=_optional_text(raw, "image_url"),
         raw=raw,
     )
@@ -487,7 +504,7 @@ def _build_click(row: ParsedRow) -> ClickPayload:
         external_click_id=external_click_id,
         clicked_at=_required_datetime(raw, "clicked_at"),
         region=_optional_text(raw, "region", max_length=80),
-        channel=_optional_text(raw, "channel", max_length=80),
+        channel=normalize_channel(raw.get("channel")),
         referrer=_optional_text(raw, "referrer"),
         sub_ids=_sub_ids(raw),
         raw=raw,
@@ -590,10 +607,16 @@ def _parse_brazilian_datetime(value: str, field: str) -> datetime:
     raise RowError(f"{field} precisa estar em ISO-8601 ou DD/MM/AAAA HH:MM.")
 
 
-def _status_group(value: str | None) -> str:
+def _status_group(value: str | None, status: str) -> str:
+    """Usa o grupo declarado no arquivo; sem ele, classifica o status bruto.
+
+    O grupo declarado é uma afirmação explícita de quem gerou o relatório e
+    prevalece. Se estiver inválido, a linha é rejeitada em vez de adivinhar:
+    um valor errado distorceria as métricas sem deixar rastro.
+    """
     group = (value or "").strip().lower()
     if not group:
-        return "unknown"
+        return status_group_from_raw(status)
     if group not in STATUS_GROUPS:
         raise RowError(
             "status_group inválido. Use "

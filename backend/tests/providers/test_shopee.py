@@ -694,6 +694,34 @@ def test_fetch_conversions_keeps_the_device_as_channel_except_for_all() -> None:
     assert [record.channel for record in records] == ["APP", "WEB", None]
 
 
+def test_fetch_conversions_defaults_missing_quantity_to_one() -> None:
+    item = conversion_item(qty=None)
+    node = conversion_node()
+    node["orders"][0]["items"] = [item]
+    provider = conversion_provider(
+        lambda request: httpx.Response(200, json=conversion_response([node]))
+    )
+
+    record = provider.fetch_conversions(conversion_query())[0]
+
+    assert record.quantity == 1
+
+
+def test_fetch_conversions_truncates_descriptive_text_to_column_limits() -> None:
+    item = conversion_item(itemName="x" * 400, displayItemStatus="y" * 100)
+    node = conversion_node()
+    node["orders"][0]["items"] = [item]
+    provider = conversion_provider(
+        lambda request: httpx.Response(200, json=conversion_response([node]))
+    )
+
+    record = provider.fetch_conversions(conversion_query())[0]
+
+    assert record.title == "x" * 300
+    assert record.status == "y" * 60
+    assert record.status_group == "unknown"
+
+
 def test_fetch_conversions_dedup_key_separates_variants_of_the_same_item() -> None:
     first = conversion_node()
     second = conversion_node(conversionId=2)

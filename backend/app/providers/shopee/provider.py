@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import re
-import unicodedata
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
@@ -13,7 +11,16 @@ from app.core.constants import (
     MAX_CONVERSION_WINDOW_DAYS,
     MAX_PAGE_SIZE,
     PRODUCT_TITLE_MAX_LENGTH,
-    SUB_ID_MAX_LENGTH,
+)
+from app.core.conversion_rules import (
+    DEFAULT_QUANTITY,
+    MAX_ORDER_ID_LENGTH,
+    MAX_STATUS_LENGTH,
+    MAX_SUB_IDS,
+    normalize_channel,
+    split_sub_ids,
+    status_group_from_raw,
+    truncate_text,
 )
 from app.core.errors import (
     ProviderInvalidResponse,
@@ -31,8 +38,6 @@ from app.providers.base import (
     ProductRecord,
 )
 from app.providers.shopee.client import ShopeeClient
-
-MAX_SUB_IDS = 5
 
 # A API limita a página a 500 e devolve um cursor com validade curta. O teto de
 # páginas evita um laço infinito se a fonte repetir o mesmo cursor.
@@ -139,16 +144,6 @@ query ($limit: Int, $scrollId: String) {{
   }}
 }}
 """
-
-_EXACT_STATUS_GROUPS = {
-    "all": "unknown",
-    "unpaid": "pending",
-    "pending": "pending",
-    "completed": "approved",
-    "cancelled": "cancelled",
-    "canceled": "cancelled",
-    "refunded": "refunded",
-}
 
 
 class ShopeeProvider:
@@ -316,7 +311,7 @@ class ShopeeProvider:
         conversion_status = _optional_str(node.get("conversionStatus"))
         utm_content = _optional_str(node.get("utmContent"))
         device = _optional_str(node.get("device"))
-        sub_ids = _sub_ids(utm_content)
+        sub_ids = split_sub_ids(utm_content)
         # "ALL" é valor de filtro da API, não um dispositivo real.
         channel = None if (device or "").casefold() == "all" else device
 
@@ -337,7 +332,7 @@ class ShopeeProvider:
                 raise ProviderInvalidResponse(
                     "A Shopee devolveu um pedido sem identificador."
                 )
-            if len(order_id) > 100:
+            if len(order_id) > MAX_ORDER_ID_LENGTH:
                 raise ProviderInvalidResponse(
                     "A Shopee devolveu um pedido com identificador longo demais."
                 )
@@ -392,7 +387,8 @@ class ShopeeProvider:
         model_id = _integer(item.get("modelId")) or 0
         quantity = _integer(item.get("qty"))
         if quantity is None:
-            quantity = 0
+            # Mesma regra do CSV: linha de item sem quantidade explícita = 1.
+            quantity = DEFAULT_QUANTITY
         if quantity < 0:
             raise ProviderInvalidResponse(
                 "A Shopee devolveu uma quantidade inválida."
@@ -418,22 +414,25 @@ class ShopeeProvider:
             or conversion_status
             or "unknown"
         )
+        status = truncate_text(raw_status, MAX_STATUS_LENGTH) or "unknown"
 
         return ConversionRecord(
             external_order_id=order_id,
             external_item_id=item_id,
             shop_id=_integer(item.get("shopId")),
-            title=_truncate(_optional_str(item.get("itemName")), 300),
+            title=truncate_text(
+                _optional_str(item.get("itemName")), PRODUCT_TITLE_MAX_LENGTH
+            ),
             image_url=_optional_str(item.get("imageUrl")),
-            status=raw_status[:60],
-            status_group=_status_group(raw_status),
+            status=status,
+            status_group=status_group_from_raw(raw_status),
             ordered_at=purchase_time,
             completed_at=_timestamp(item.get("completeTime")),
             quantity=quantity,
             sales_cents=_to_cents(sales),
             commission_cents=_to_cents(commission),
             sub_ids=sub_ids,
-            channel=_truncate(channel, 80),
+            channel=normalize_channel(channel),
             dedup_key=_order_dedup_key(order_id, item_id, model_id),
             source=SOURCE_SHOPEE,
             raw={
@@ -618,71 +617,3 @@ def _order_dedup_key(order_id: str, item_id: int, model_id: int) -> str:
     ).hexdigest()
     return f"order:{digest}"
 
-
-def _truncate(value: str | None, limit: int) -> str | None:
-    return value[:limit] if value is not None else None
-
-
-def _status_group(value: str | None) -> str:
-    """Classifica o status bruto sem presumir um vocabulário fechado."""
-    token = (value or "").strip().casefold()
-    if not token:
-        return "unknown"
-
-    exact = _EXACT_STATUS_GROUPS.get(token)
-    if exact is not None:
-        return exact
-    if "cancel" in token:
-        return "cancelled"
-    if "refund" in token or "return" in token or "devolu" in token:
-        return "refunded"
-    if (
-        "unpaid" in token
-        or "pending" in token
-        or "process" in token
-        or "ship" in token
-        or "transit" in token
-        or "await" in token
-    ):
-        return "pending"
-    if (
-        "complete" in token
-        or "approv" in token
-        or "paid" in token
-        or "deliver" in token
-        or "conclu" in token
-    ):
-        return "approved"
-    return "unknown"
-
-
-def _sub_ids(utm_content: str | None) -> tuple[str | None, ...]:
-    """Separa o utmContent em até cinco Sub IDs canônicos.
-
-    A API não expõe campos de Sub ID no nó de conversão; o valor chega em
-    ``utmContent``. O separador real de múltiplos valores não está documentado,
-    então vírgula, ponto e vírgula, barra vertical e espaço são aceitos. O valor
-    bruto permanece em ``raw`` para auditoria.
-    """
-    if not utm_content:
-        return (None,) * MAX_SUB_IDS
-
-    parts = re.split(r"[,;|\s]+", utm_content.strip())
-    tokens = [
-        token
-        for token in (_canonical_sub_id(part) for part in parts)
-        if token is not None
-    ][:MAX_SUB_IDS]
-    return tuple(tokens + [None] * (MAX_SUB_IDS - len(tokens)))
-
-
-def _canonical_sub_id(value: str) -> str | None:
-    without_accents = (
-        unicodedata.normalize("NFKD", value)
-        .encode("ascii", "ignore")
-        .decode("ascii")
-        .casefold()
-    )
-    cleaned = re.sub(r"[^a-z0-9-]+", "-", without_accents)
-    collapsed = re.sub(r"-{2,}", "-", cleaned).strip("-")
-    return collapsed[:SUB_ID_MAX_LENGTH].strip("-") or None

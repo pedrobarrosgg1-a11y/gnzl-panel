@@ -24,15 +24,47 @@ order_id,item_id,shop_id,status,status_group,ordered_at,completed_at,quantity,sa
 | `ordered_at` | obrigatória; ISO-8601 ou `DD/MM/AAAA HH:MM[:SS]` |
 | `completed_at` | opcional; mesmo formato de data |
 | `quantity` | opcional; inteiro ≥ 0, padrão 1 |
-| `sales_cents` | opcional; inteiro em centavos, padrão 0 |
-| `commission_cents` | opcional; inteiro em centavos, padrão 0 |
+| `sales_cents` | opcional; inteiro em centavos ≥ 0, padrão 0 |
+| `commission_cents` | opcional; inteiro em centavos ≥ 0, padrão 0 |
 | `sub_id_1..5` | opcionais; normalizados para minúsculas |
 | `channel`, `title`, `image_url` | opcionais |
 
-`status` preserva o texto recebido. `status_group` é a classificação usada nas
-métricas; quando ausente, fica `unknown` e não entra como venda aprovada.
-Nenhum status oficial da Shopee é presumido — o adaptador futuro preencherá a
-classificação.
+`status` preserva o texto recebido (até 60 caracteres). `status_group` é a
+classificação usada nas métricas. Quando ausente, é **derivado** de `status`
+pelas mesmas regras do provedor oficial, em `app/core/conversion_rules.py`:
+
+- `cancel*` → `cancelled`;
+- `refund*`, `return*`, `devolu*`, `devolv*`, `reembols*`, `estorn*` →
+  `refunded`;
+- `unpaid`, `nao pago`, `pending`, `pend*`, `process*`, `ship*`, `enviad*`,
+  `transit*`, `await*`, `aguard*` → `pending`;
+- `complete*`, `conclu*`, `approv*`, `aprov*`, `paid`, `pago`, `deliver*`,
+  `entreg*`, `faturad*` → `approved`;
+- qualquer outro texto → `unknown`.
+
+A ordem das verificações importa: "Não pago" contém "pago", mas é classificado
+como `pending` porque a pendência é testada antes da aprovação. Quando
+`status_group` está presente, ele prevalece; um valor fora da lista é erro de
+linha, não uma adivinhação.
+
+### Normalização de campos descritivos
+
+Os dois importadores (CSV e Shopee) aplicam as mesmas regras. Campos de
+identidade são validados; campos descritivos são normalizados:
+
+| campo | regra |
+|---|---|
+| `order_id` | até 100 caracteres; acima disso a linha é rejeitada |
+| `status` | até 60 caracteres; o excesso é cortado |
+| `title` | até 300 caracteres; o excesso é cortado |
+| `channel` | até 80 caracteres; `app`/`web`/`mobile`/`desktop`/`other` viram maiúsculas |
+| `sub_id_1..5` | `a-z0-9-`, sem acento, até 64; vazio vira ausência |
+| `quantity` | ausente = 1; zero é um valor explícito |
+| `sales_cents`, `commission_cents` | não podem ser negativos |
+
+O corte não perde o original: a linha inteira fica em `imported_rows.raw_data`.
+Rejeitar o arquivo por causa de um título comprido perderia a importação
+inteira por um detalhe cosmético.
 
 ### Cliques
 

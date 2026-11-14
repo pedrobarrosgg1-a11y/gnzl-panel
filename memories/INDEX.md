@@ -16,6 +16,11 @@ testes nem `docs/architecture/`.
 - [Etapa 14 — importação CSV](Results/etapa-14-importacao-csv.md)
 - [Etapa 19a — provedor oficial da Shopee](Results/etapa-19a-provedor-shopee.md)
 - [Etapa 19b — sincronização de conversões](Results/etapa-19b-sincronizacao-conversoes.md)
+- [Etapa 15 — normalização compartilhada e dashboard](Results/etapa-15-dashboard.md)
+
+## Patterns
+
+- [Normalização compartilhada entre origens de conversão](Patterns/normalizacao-compartilhada-conversoes.md)
 
 ## Gotchas
 

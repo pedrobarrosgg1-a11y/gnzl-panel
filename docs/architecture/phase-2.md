@@ -10,7 +10,7 @@ fictício sem identificação.
 |---|---|---|
 | 13 | Modelagem e migrations de pedidos, cliques, metas e importações | concluída |
 | 14 | Importação CSV com validação, deduplicação e relatório de linhas | concluída |
-| 15 | Agregações e endpoints de dashboard | pendente |
+| 15 | Agregações e endpoints de dashboard | concluída |
 | 16 | Tela de dashboard com métricas, gráfico e rankings | pendente |
 | 17 | Metas: cadastro, acompanhamento e integração com o dashboard | pendente |
 | 18 | Testes E2E e fechamento da fase 2 | pendente |
@@ -58,16 +58,38 @@ parciais.
 
 - **comissão:** soma de `commission_cents` dos pedidos com status aprovado.
 - **vendas:** soma de `sales_cents` dos pedidos com status aprovado.
-- **pedidos:** quantidade de pedidos aprovados; quando o relatório for por
-  item, agrupar por `external_order_id`.
-- **cliques:** contagem de linhas de `clicks`.
-- **conversão:** pedidos aprovados divididos por cliques no mesmo período,
-  exibida apenas quando houver cliques.
-- **ticket médio:** vendas aprovadas divididas por pedidos aprovados.
-- **comparação:** período atual contra o período anterior de mesma duração.
+- **pedidos:** `count(distinct external_order_id)` dos pedidos aprovados; um
+  pedido com vários itens continua sendo um pedido.
+- **cliques:** contagem de linhas de `clicks` no período.
+- **conversão:** pedidos aprovados divididos por cliques no mesmo período, em
+  pontos-base; sem cliques, é nula.
+- **ticket médio:** vendas aprovadas divididas por pedidos aprovados, em
+  centavos; sem pedidos, é nulo.
+- **comparação:** período atual contra o anterior de mesma duração; a variação
+  percentual é nula quando o período anterior é zero.
 
 Todo agregado deve informar a origem dos dados (`demo`, `shopee` ou `csv`). O
 dashboard não soma origens diferentes sem um filtro explícito.
+
+As métricas são calculadas no momento da consulta. Nada é pré-agregado nem
+persistido: uma importação nova aparece no próximo `GET`.
+
+## Normalização compartilhada
+
+CSV e Shopee gravam na mesma tabela e precisam produzir os mesmos valores para
+o mesmo pedido. As regras comuns vivem em `app/core/conversion_rules.py`:
+
+- classificação de `status_group` a partir do status bruto, em inglês e
+  português;
+- separação e canonicalização de Sub IDs;
+- canal curto, com tokens de dispositivo em maiúsculas;
+- cortes de texto nos limites das colunas;
+- quantidade ausente = 1 e valores monetários não negativos.
+
+O importador CSV valida colunas e linhas; o provedor oficial valida a resposta
+da API. Depois disso, ambos aplicam as mesmas regras. O teste de equivalência
+(`backend/tests/services/test_conversion_normalization.py`) percorre os dois
+caminhos e compara campo a campo.
 
 ## Importação CSV
 
@@ -106,7 +128,23 @@ Detalhes de query, mapeamento e limitações estão em
 
 ## Dashboard
 
-A tela segue o `DESIGN.md`:
+O endpoint `GET /api/dashboard` está implementado:
+
+```http
+GET /api/dashboard?source=csv&start=2026-11-01&end=2026-11-30
+```
+
+- `source` obrigatório (`demo`, `shopee` ou `csv`);
+- período em dias locais, padrão de 30 dias terminando hoje;
+- janela máxima de 366 dias;
+- comparação com o período anterior de mesma duração;
+- série diária zero-preenchida;
+- rankings de Sub IDs e de itens, até 10 por comissão.
+
+Regras de cálculo, fuso horário e formato da resposta estão em
+[`dashboard.md`](dashboard.md).
+
+A tela segue o `DESIGN.md` e entra na etapa 16:
 
 - filtro de período no cabeçalho;
 - métricas em faixa horizontal, sem cards;

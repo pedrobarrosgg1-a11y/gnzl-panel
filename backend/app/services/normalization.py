@@ -2,33 +2,22 @@
 
 Uma única forma canônica evita duplicidade causada por diferença de escrita:
 "Black Friday", "black-friday " e "BLACK_FRIDAY" viram ``black-friday``.
+A primitiva textual vive em ``app.core.normalization`` para ser reaproveitada
+pelos relatórios importados sem criar dependência de serviço para serviço.
 """
 
-import re
-import unicodedata
 from collections.abc import Sequence
 
 from app.core.constants import LIST_NAME_MAX_LENGTH, SUB_ID_MAX_LENGTH
 from app.core.errors import ValidationError
+from app.core.normalization import normalize_key
 
-_SEPARATORS = re.compile(r"[\s_]+")
-_INVALID_CHARS = re.compile(r"[^a-z0-9-]+")
-_REPEATED_HYPHENS = re.compile(r"-{2,}")
-
-
-def normalize_key(value: str, *, max_length: int = LIST_NAME_MAX_LENGTH) -> str:
-    """Minúsculas, sem acento, apenas ``a-z0-9-``, sem hífens nas pontas.
-
-    Retorna string vazia se nada aproveitável sobrar — quem chama decide se
-    isso é erro.
-    """
-    without_accents = (
-        unicodedata.normalize("NFKD", value.strip()).encode("ascii", "ignore").decode()
-    )
-    with_separators = _SEPARATORS.sub("-", without_accents.lower())
-    cleaned = _INVALID_CHARS.sub("", with_separators)
-    collapsed = _REPEATED_HYPHENS.sub("-", cleaned).strip("-")
-    return collapsed[:max_length].strip("-")
+__all__ = [
+    "normalize_key",
+    "normalize_list_name",
+    "normalize_sub_id",
+    "normalize_sub_id_slots",
+]
 
 
 def normalize_list_name(value: str) -> str:

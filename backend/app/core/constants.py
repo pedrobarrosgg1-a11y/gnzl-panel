@@ -22,3 +22,9 @@ MAX_IMPORT_BYTES = 10 * 1024 * 1024
 # aplicado no provedor e repetido no endpoint para a interface não oferecer uma
 # janela que a fonte recusaria.
 MAX_CONVERSION_WINDOW_DAYS = 90
+
+# Dashboard: janela máxima de consulta, período padrão e tamanho dos rankings.
+# O teto evita uma série diária enorme e uma consulta sem recorte útil.
+MAX_DASHBOARD_DAYS = 366
+DEFAULT_DASHBOARD_DAYS = 30
+DASHBOARD_TOP_LIMIT = 10

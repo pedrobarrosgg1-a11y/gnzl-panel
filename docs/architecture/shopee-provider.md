@@ -164,7 +164,7 @@ query ($limit: Int, $scrollId: String) {
 | `orders[].orderId` | `external_order_id` | string, até 100 caracteres |
 | `items[].itemId`, `items[].shopId` | `external_item_id`, `shop_id` | inteiro |
 | `items[].itemName` | `title` | até 300 caracteres |
-| `items[].qty` | `quantity` | ausente vira 0 |
+| `items[].qty` | `quantity` | ausente vira 1; zero é explícito |
 | `items[].actualAmount` | `sales_cents` | cai para `itemPrice × qty` |
 | `items[].itemTotalCommission` | `commission_cents` | cai para `itemCommission`, depois 0 |
 | `items[].completeTime` | `completed_at` | 0 significa ausência |
@@ -177,19 +177,27 @@ query ($limit: Int, $scrollId: String) {
 O nó de conversão **não expõe campos de Sub ID**: o único vínculo é
 `utmContent`. O separador real de múltiplos valores não está documentado, então
 vírgula, ponto e vírgula, barra vertical e espaço são aceitos. Cada parte passa
-pela canonicalização (`a-z0-9-`, até 64) e as cinco primeiras viram
-`sub_id_1..5`. O valor bruto fica em `imported_rows.raw_data`.
+pela canonicalização compartilhada com o CSV (`a-z0-9-`, sem acento, até 64) e
+as cinco primeiras viram `sub_id_1..5`. O valor bruto fica em
+`imported_rows.raw_data`.
 
 ### Status
 
-O status bruto é preservado em `orders.status`. A classificação usa tokens
-conhecidos, sem presumir um vocabulário fechado:
+O status bruto é preservado em `orders.status` (até 60 caracteres). A
+classificação usa os mesmos tokens do importador CSV, definidos em
+`app/core/conversion_rules.py`, sem presumir um vocabulário fechado:
 
 - `cancel*` → `cancelled`;
-- `refund*`, `return*`, `devolu*` → `refunded`;
-- `unpaid`, `pending`, `process`, `ship`, `transit`, `await` → `pending`;
-- `complete`, `approv`, `paid`, `deliver`, `conclu` → `approved`;
+- `refund*`, `return*`, `devolu*`, `devolv*`, `reembols*`, `estorn*` →
+  `refunded`;
+- `unpaid`, `nao pago`, `pending`, `pend*`, `process*`, `ship*`, `enviad*`,
+  `transit*`, `await*`, `aguard*` → `pending`;
+- `complete*`, `conclu*`, `approv*`, `aprov*`, `paid`, `pago`, `deliver*`,
+  `entreg*`, `faturad*` → `approved`;
 - qualquer outro → `unknown`.
+
+A ordem importa: "Não pago" contém "pago" e ficaria aprovado se a pendência não
+fosse testada antes.
 
 ### Deduplicação e histórico
 
@@ -287,6 +295,8 @@ A documentação comunitária foi útil como pista, mas errou:
 `backend/tests/services/test_conversion_sync.py` cobre criação, idempotência,
 atualização, isolamento por origem, repetição no mesmo lote, execução vazia,
 falha do provedor sem escrita e janela inválida.
+`backend/tests/services/test_conversion_normalization.py` compara, campo a
+campo, um mesmo pedido importado por CSV e mapeado da resposta da Shopee.
 `backend/tests/api/test_conversions.py` cobre o `409` em modo demo, o `201`
 com histórico, a segunda execução e o `422` de `days`.
 

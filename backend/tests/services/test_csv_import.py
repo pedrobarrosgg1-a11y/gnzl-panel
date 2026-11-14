@@ -34,6 +34,8 @@ def _order_row(
     sales_cents: str = "19990",
     commission_cents: str = "1700",
     sub_id_1: str = "Instagram",
+    channel: str = "instagram",
+    title: str = "Fone bluetooth",
 ) -> str:
     return ",".join(
         [
@@ -47,8 +49,8 @@ def _order_row(
             sales_cents,
             commission_cents,
             sub_id_1,
-            "instagram",
-            "Fone bluetooth",
+            channel,
+            title,
             "https://img.example/x.jpg",
             "2026-11-02T10:00:00",
         ]
@@ -238,15 +240,92 @@ def test_optional_columns_use_safe_defaults(session: Session) -> None:
     assert order.title is None
 
 
-def test_missing_status_group_defaults_to_unknown(session: Session) -> None:
+@pytest.mark.parametrize(
+    ("status", "group"),
+    [
+        ("Aprovado", "approved"),
+        ("Concluído", "approved"),
+        ("Pago", "approved"),
+        ("Cancelado", "cancelled"),
+        ("Devolvido", "refunded"),
+        ("Reembolsado", "refunded"),
+        ("Aguardando pagamento", "pending"),
+        ("Não pago", "pending"),
+        ("Status novo da Shopee", "unknown"),
+    ],
+)
+def test_missing_status_group_is_derived_from_the_raw_status(
+    session: Session, status: str, group: str
+) -> None:
     content = _csv(
         ORDER_HEADER,
-        "A9,19,100,Aprovado,,2026-11-01T10:00:00",
+        f"A9,19,100,{status},,2026-11-01T10:00:00",
     )
 
     CsvImportService(session).import_orders("conversion.csv", content)
 
-    assert session.query(Order).one().status_group == "unknown"
+    assert session.query(Order).one().status_group == group
+
+
+def test_declared_status_group_prevails_over_the_derived_one(
+    session: Session,
+) -> None:
+    content = _csv(
+        ORDER_HEADER,
+        "A9,19,100,Aprovado,pending,2026-11-01T10:00:00",
+    )
+
+    CsvImportService(session).import_orders("conversion.csv", content)
+
+    order = session.query(Order).one()
+    assert order.status == "Aprovado"
+    assert order.status_group == "pending"
+
+
+def test_descriptive_fields_are_normalized_like_the_official_provider(
+    session: Session,
+) -> None:
+    long_title = "x" * 350
+    content = _csv(
+        ORDER_HEADER,
+        _order_row(channel=" app ", title=long_title, sub_id_1="Promo/2026"),
+    )
+
+    CsvImportService(session).import_orders("conversion.csv", content)
+
+    order = session.query(Order).one()
+    assert order.channel == "APP"
+    assert order.title == "x" * 300
+    assert order.sub_id_1 == "promo2026"
+
+
+def test_quantity_zero_is_kept_but_missing_quantity_is_one(session: Session) -> None:
+    content = _csv(
+        ORDER_HEADER,
+        _order_row("A1", "10", quantity="0"),
+        _order_row("A2", "11", quantity=""),
+    )
+
+    CsvImportService(session).import_orders("conversion.csv", content)
+
+    quantities = {
+        order.external_order_id: order.quantity
+        for order in session.query(Order).order_by(Order.id)
+    }
+    assert quantities == {"A1": 0, "A2": 1}
+
+
+@pytest.mark.parametrize("field", ["sales_cents", "commission_cents"])
+def test_negative_monetary_values_are_rejected(
+    session: Session, field: str
+) -> None:
+    content = _csv(ORDER_HEADER, _order_row(**{field: "-1"}))
+
+    log = CsvImportService(session).import_orders("conversion.csv", content)
+
+    assert log.rows_failed == 1
+    assert log.rows_imported == 0
+    assert session.query(Order).count() == 0
 
 
 def test_import_clicks_converts_timezone_and_links_rows(session: Session) -> None:
